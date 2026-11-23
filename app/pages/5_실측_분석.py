@@ -127,4 +127,4 @@ with t6:
                 "없을 수 있어, 사업별 세출 서비스 이름을 `config/edufin.yaml`에 추가해야 합니다. 받은 칸은 아래와 같습니다.")
         st.write(", ".join(map(str, bd.columns)))
     else:
-        st.warning(f"지방교육재정알리미에서 자료를 받지 못했습니다 ({status}). 키가 승인됐는지 확인해 주세요.")
+        st.warning(f"지방교육재정알리미에서 자료를 받지 못했습니다 ({status}). 위 '연결 상태'에 서버 응답 앞부분이 나옵니다.")

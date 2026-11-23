@@ -220,3 +220,51 @@ class LawAPIClient:
         """자치법규를 검색어로 찾아 이름에 must_contain 이 모두 들어간 것만 남긴다."""
         hits = self.search("ordin", query, display=display)
         return [h for h in hits if all(w in h.get("자치법규명", "") for w in must_contain)]
+
+
+# ── 키 없이: 국가법령정보센터 자치법규 본문 화면(ordinInfoR.do) ──────────────
+ORDIN_BODY_URL = "https://www.law.go.kr/LSW/ordinInfoR.do?ordinSeq={mst}"
+ORDIN_VIEW_URL = "https://www.law.go.kr/ordinInfoP.do?ordinSeq={mst}"
+_HTML_ART = re.compile(r"(?m)^\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)\s*\(([^)]{1,60})\)")
+
+
+def parse_ordinance_html(html: str, *, name: str, mst: str, doc_prefix: str) -> list[Document]:
+    """본문 화면 HTML → 조문 Document. 조문 머리('제N조(제목)')로 나누고 부칙 앞에서 끊는다."""
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(html, "lxml")
+    for t in soup(["script", "style", "noscript"]):
+        t.decompose()
+    text = "\n".join(l.strip() for l in soup.get_text("\n").splitlines() if l.strip())
+    cut = re.search(r"(?m)^\s*부\s*칙", text)
+    if cut:
+        text = text[:cut.start()]
+    heads = list(_HTML_ART.finditer(text))
+    docs, seen = [], set()
+    for i, m in enumerate(heads):
+        no = re.sub(r"\s+", "", m.group(1))
+        if no in seen:   # 목차와 본문에 같은 머리가 두 번 나오면 본문(뒤쪽)을 쓴다
+            docs = [d for d in docs if d.article_no != no]
+        seen.add(no)
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+        body = " ".join(text[m.end():end].split())
+        if not body:
+            continue
+        docs.append(Document(id=f"{doc_prefix}-{no}", source_type="ordinance",
+                             title=f"{name} {no} ({m.group(2).strip()})", text=body,
+                             url=ORDIN_VIEW_URL.format(mst=mst), article_no=no, reliability="A", verified=True,
+                             meta={"ordinance": name, "via": "law.go.kr 본문 화면"}))
+    return docs
+
+
+def fetch_ordinance_html(mst: str, name: str, doc_prefix: str = "ord", client=None) -> list[Document]:
+    import httpx
+    own = client is None
+    client = client or httpx.Client(timeout=30.0, headers={"User-Agent": "Mozilla/5.0 (research-collector)"},
+                                    follow_redirects=True)
+    try:
+        r = client.get(ORDIN_BODY_URL.format(mst=mst))
+        r.raise_for_status()
+        return parse_ordinance_html(r.text, name=name, mst=str(mst), doc_prefix=doc_prefix)
+    finally:
+        if own:
+            client.close()

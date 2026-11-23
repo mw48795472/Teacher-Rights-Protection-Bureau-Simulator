@@ -109,6 +109,9 @@ def _collect_law_api(src: dict, only: set[str], log) -> list[Document]:
                 got = client.fetch_by_name("ordin", o["name"], doc_prefix=f"ord{i}")
                 if not got and o.get("mst"):
                     got = client.fetch("ordin", o["mst"], doc_prefix=f"ord{i}")
+                if not got and o.get("mst") and not o.get("discovered"):
+                    from .law_api import fetch_ordinance_html
+                    got = fetch_ordinance_html(o["mst"], o["name"], doc_prefix=f"ord{i}")
                 log(f"[조례] {o['name']}: 조문 {len(got)}개")
                 for d in got:
                     d.meta["ordinance"] = o["name"]
@@ -279,6 +282,30 @@ def cached_law_docs(path: Path = LAW_CACHE, ttl: int = LAW_CACHE_TTL, log=lambda
     return old
 
 
+ORD_CACHE = ROOT / "data" / "processed" / "ordinance_html_cache.jsonl"
+
+
+def cached_ordinance_html(path: Path = ORD_CACHE, ttl: int = LAW_CACHE_TTL) -> list[Document]:
+    """키 없이 sources.yaml 의 조례(mst) 본문을 국가법령정보센터 화면에서 받아 일주일 캐시한다.
+    LAW_OC 가 막히거나 없어도 조례 조문 원문으로 팀 요약을 대체하기 위한 길. 실패하면 이전 캐시."""
+    old = _read_jsonl(path) if path.exists() else []
+    if path.exists() and time.time() - path.stat().st_mtime < ttl:
+        return old
+    from .law_api import fetch_ordinance_html
+    docs = []
+    for i, o in enumerate(load_sources().get("ordinances") or []):
+        if not o.get("mst"):
+            continue
+        try:
+            docs += fetch_ordinance_html(o["mst"], o["name"], doc_prefix=f"ord{i}")
+        except Exception:  # 앱 시작을 막지 않는다
+            continue
+    if docs:
+        write(docs, path)
+        return docs
+    return old
+
+
 def load_corpus(path: Path = OUT, live_bills: bool = True, live_laws: bool = True) -> list[Document]:
     """로컬 수집 결과 → 없으면 시드 + 커밋된 스냅샷(배포 환경) → 없으면 시드.
     배포 환경에서 원문 법령이 없고 LAW_OC 가 있으면 법령 원문을 받아(일주일 캐시) 팀 요약을 대체하고,
@@ -294,6 +321,10 @@ def load_corpus(path: Path = OUT, live_bills: bool = True, live_laws: bool = Tru
         if laws:
             have = {d.id for d in laws}
             docs = merge([d for d in docs if d.id not in have], laws)
+    if live_laws and path == OUT and not any(d.source_type == "ordinance" and d.verified for d in docs):
+        ords = cached_ordinance_html()
+        if ords:
+            docs = merge(docs, ords)
     if live_bills and path == OUT and not any(d.source_type == "bill" for d in docs):
         from .assembly import cached_bills
         docs += cached_bills(load_sources().get("bills"))
