@@ -151,3 +151,15 @@ def test_committee_by_sido_totals_match_reports():
     t = cal.committee_by_sido()
     assert t.iloc[0]["시도"] == "경기" and t.iloc[0]["2024년"] == 1054
     assert 2.8 < cal.gyeonggi_committee_per_day() < 3.0
+
+
+def test_fact_based_scenarios_are_runnable_and_sourced():
+    import yaml
+    from sim.cases import SERVICES, scenario_case
+    sc = yaml.safe_load((ROOT / "config" / "scenarios.yaml").read_text(encoding="utf-8"))["scenarios"]
+    facts = [s for s in sc if "사실 기반" in s["name"]]
+    assert len(facts) >= 10
+    for s in facts:
+        assert set(s["needs"]) <= set(SERVICES), s["name"]
+        assert s.get("sources") or "[" in s["description"], s["name"]
+        assert scenario_case(s, 0.0, 1).label == s["name"]
