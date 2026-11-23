@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 
+from .labels import tag_suffix
 from .retriever import Hit
 
 SYSTEM = (
@@ -28,7 +29,7 @@ def answer(question: str, hits: list[Hit]) -> tuple[str, bool]:
     import anthropic
 
     context = "\n\n".join(
-        f"[{i}] {h.doc.title} (신뢰도 {h.doc.reliability}{', ' + h.doc.source_tag if h.doc.source_tag else ''})\n{h.doc.text}"
+        f"[{i}] {h.doc.title} (신뢰도 {h.doc.reliability}{tag_suffix(h.doc)})\n{h.doc.text}"
         for i, h in enumerate(hits, 1)
     )
     client = anthropic.Anthropic()

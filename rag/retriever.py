@@ -28,7 +28,8 @@ class Hit:
 
     @property
     def citation(self) -> str:
-        tag = f" · {self.doc.source_tag}" if self.doc.source_tag else ""
+        from .labels import tag_suffix
+        tag = tag_suffix(self.doc, " · ")
         return f"[{self.doc.title}] 신뢰도 {self.doc.reliability}{tag}"
 
 
