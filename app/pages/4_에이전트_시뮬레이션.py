@@ -27,9 +27,9 @@ else:
     st.warning("ANTHROPIC_API_KEY가 없어 **오프라인 예시 모드**로 돕니다. 행위자는 정해진 예시 스크립트를 따르고, "
                "컴플라이언스는 몇 가지 규칙으로만 판정합니다. 실제 에이전트 판단을 보려면 키를 넣어 주세요.")
 
-n_unverified = sum(not d.verified for d in retriever().docs if d.source_type in ("ordinance", "law"))
-if n_unverified:
-    st.info(f"조례 조문 {n_unverified}개가 팀 요약 상태입니다. 교권5법 원문도 아직 없으면 판정이 '근거 불충분'으로 "
+n_unchecked = sum(d.needs_check for d in retriever().docs if d.source_type in ("ordinance", "law"))
+if n_unchecked:
+    st.info(f"법령·조례 조문 {n_unchecked}개가 원문도 원문 링크도 없는 팀 요약입니다. 이 조문에 기댄 판정은 '근거 불충분'으로 "
             "나오기 쉽습니다. LAW_OC를 넣고 `python -m collector.pipeline`을 돌리면 원문으로 판정합니다.")
 
 sc = scenarios()
@@ -153,7 +153,8 @@ with tab_log:
                             for cid in v.cited_ids:
                                 d = docs.get(cid)
                                 if d:
-                                    tag = "" if d.verified else " (팀 요약, 원문 확인 필요)"
-                                    st.markdown(f"**{d.title}**{tag}  \n{d.text}")
+                                    tag = f" ({d.source_tag})" if d.source_tag else ""
+                                    link = f"  \n[원문 보기]({d.url})" if d.has_link else ""
+                                    st.markdown(f"**{d.title}**{tag}  \n{d.text}{link}")
             st.download_button("로그 JSON 내려받기", json.dumps(run.to_dict(), ensure_ascii=False, indent=2),
                                file_name=f"agent_run_{k}.json", mime="application/json", key=f"dl-{k}")

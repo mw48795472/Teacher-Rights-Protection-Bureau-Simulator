@@ -244,7 +244,7 @@ with tab_terms:
     )
 
 n = len(retriever().docs)
-unverified = sum(not d.verified for d in retriever().docs)
+unchecked = sum(d.needs_check for d in retriever().docs)
 st.write("")
-st.caption(f"지식베이스 문서 {n}개 중 {unverified}개는 팀 요약입니다. 처리시간·확률 대부분은 가정값이므로 "
-           "결과는 이론의 논리를 보여주는 사고실험으로 다뤄 주세요.")
+note = f"지식베이스 문서 {n}개 중 {unchecked}개는 원문도 원문 링크도 없는 팀 요약입니다. " if unchecked else ""
+st.caption(f"{note}처리시간·확률 대부분은 가정값이므로 결과는 이론의 논리를 보여주는 사고실험으로 다뤄 주세요.")
