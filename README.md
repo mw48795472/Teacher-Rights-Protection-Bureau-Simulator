@@ -20,8 +20,30 @@
    ANTHROPIC_API_KEY = "sk-ant-..."
    ```
 
-배포 환경에서는 수집기를 돌리지 않으므로 시드 지식베이스(`config/seed_corpus.yaml`)로 동작합니다.
-원문 조문으로 판정하려면 로컬에서 수집한 결과를 시드에 반영해야 합니다.
+배포 환경에서는 수집기를 돌리지 않으므로 시드 지식베이스(`config/seed_corpus.yaml`)와
+커밋된 원문 스냅샷(`data/snapshot/corpus.jsonl`, 있으면)으로 동작합니다.
+배포 앱에 원문을 반영하려면 로컬에서 `python -m collector.pipeline --snapshot` 을 돌린 뒤
+`data/snapshot/corpus.jsonl` 을 커밋합니다. 스냅샷에는 법령·판례(저작권법 제7조)와 정부 자료(공공누리)만 들어가고 언론 기사 본문은 빠집니다.
+
+## 수집기
+
+| 수집기 | 대상 | 필요한 것 |
+|---|---|---|
+| `laws` | 교원지위법·시행령, 초·중등교육법·시행령, 교육공무원법, 아동학대처벌법, 아동복지법 등 조문 | `LAW_OC` |
+| `ordinances` | 경기도교육청 교권보호전담관 운영 조례 + 검색어로 찾은 경기·인천 교육활동 보호 자치법규 | `LAW_OC` |
+| `admin_rules` | 교육부 고시 (교육활동 침해 행위 및 조치 기준, 학생생활지도 고시) | `LAW_OC` |
+| `precedents` | 교육활동 침해·교권보호위원회·정서학대·악성 민원 판례 (판시사항·판결요지) | `LAW_OC` |
+| `pages` | 경기교권보호지원센터 안내, 교육부 게시글(첨부 HWPX·PDF까지), 도의회, 프랑스 지침, 기사 | 없음 |
+| `boards` | 교육부·경기도교육청 보도자료 게시판을 키워드로 검색해 수집 | 없음 |
+| `files` | HWPX·PDF·DOCX 파일 (URL·경로 등록, 또는 `data/raw/inbox/`에 넣기) | 없음 |
+
+```bash
+python -m collector.pipeline --list            # 수집기와 키 상태
+python -m collector.pipeline --only boards     # 일부만
+```
+
+대상은 `config/sources.yaml` 에서 고칩니다. 원문이 들어오면 같은 URL(또는 `replaces:`로 지정한)
+팀 요약 시드가 빠지고, 실행이 끝나면 남은 팀 요약 목록을 보여 줍니다. 구형 `.hwp` 는 읽지 못하니 HWPX나 PDF로 저장해 넣어 주세요.
 
 ## 빠른 시작
 
@@ -61,7 +83,11 @@ config/
   seed_corpus.yaml     팀 조사 자료 요약 (조례 조문, 기사, 정책, 이론) + 출처·신뢰도
   sources.yaml         실제 수집 대상 (법령명, 조례, 웹페이지 URL)
   scenarios.yaml       사안 추적용 시나리오 (1호 사안 등, 「참교육」 시나리오는 팀이 추가)
-collector/             법령 API(XML → 조문), 웹페이지 파서, 수집 파이프라인
+collector/             수집 파이프라인
+  law_api.py           국가법령정보센터 API (법령·자치법규·행정규칙·판례)
+  sites.py             교육부·경기도교육청 보도자료 (게시판 검색, 첨부 HWPX)
+  documents.py         HWPX·PDF·DOCX 본문 추출
+  html_page.py         일반 웹페이지, files.py 파일·inbox
 rag/                   문자 n-gram TF-IDF + BM25 하이브리드 검색, 근거 Q&A
 sim/
   structures/*.yaml    비교할 조직 구조와 파라미터
