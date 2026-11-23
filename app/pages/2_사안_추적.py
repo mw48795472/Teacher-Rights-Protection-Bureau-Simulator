@@ -5,7 +5,7 @@ import streamlit as st
 import fresh  # noqa: E402  새 배포 뒤 낡은 모듈을 먼저 다시 읽는다 (common·sim 을 불러오기 전에)
 
 fresh.ensure()
-from common import freeze, llm_badge, retriever, scenarios, simulate, structures
+from common import data_label, freeze, llm_badge, mark_virtual, scenario_kind, retriever, scenarios, simulate, structures
 from sim.explain import narrate_case
 
 st.set_page_config(page_title="사안 추적", page_icon="🏫", layout="wide")
@@ -20,6 +20,7 @@ sc = scenarios()
 pick = st.selectbox("시나리오", range(len(sc)), format_func=lambda i: sc[i]["name"])
 spec = sc[pick]
 st.info(spec.get("description", ""))
+data_label("scenario", scenario_kind(spec) + " 경과일·주체·행동 기록은 가상 데이터입니다.")
 c1, c2, c3 = st.columns(3)
 left = c1.selectbox("왼쪽 구조", list(S), index=0, format_func=names.get)
 right = c2.selectbox("오른쪽 구조", list(S), index=min(2, len(S) - 1), format_func=names.get)
@@ -41,11 +42,11 @@ def show(col, key):
         rows = [{**e, "경과일": round(e["day"] - t0, 2),
                  "근거": docs[e["cite"]].title if e["cite"] in docs else ""} for e in trace]
         d = pd.DataFrame(rows)
-        st.metric("종결까지", f"{d['경과일'].iloc[-1]:.1f} 근무일")
+        st.metric("종결까지 (가상)", f"{d['경과일'].iloc[-1]:.1f} 근무일")
         fig = px.scatter(d, x="경과일", y="actor", hover_data=["action", "근거"], height=360)
         fig.update_traces(marker_size=12)
         fig.update_layout(yaxis_title="", xaxis_title="경과일 (근무일)")
-        st.plotly_chart(fig, width="stretch", key=f"tl-{key}")
+        st.plotly_chart(mark_virtual(fig, "가상 시나리오 · 시뮬레이션 결과"), width="stretch", key=f"tl-{key}")
         st.dataframe(d[["경과일", "actor", "action", "근거"]].rename(columns={"actor": "주체", "action": "행동"}),
                      width="stretch", hide_index=True)
         if st.button("Claude로 이야기 풀기", key=f"nar-{key}"):

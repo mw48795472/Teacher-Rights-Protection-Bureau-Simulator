@@ -5,7 +5,7 @@ import yaml
 import fresh  # noqa: E402  새 배포 뒤 낡은 모듈을 먼저 다시 읽는다 (common·sim 을 불러오기 전에)
 
 fresh.ensure()
-from common import ROOT, llm_badge, neis_status, retriever, schools
+from common import ROOT, data_label, llm_badge, neis_status, retriever, schools
 from rag.answer import answer
 
 st.set_page_config(page_title="근거 자료", page_icon="🏫", layout="wide")
@@ -90,12 +90,15 @@ if q:
                 st.markdown(f"**[{i}]** {h.citation}  \n{h.doc.text}")
 
 st.subheader("전체 지식베이스")
+st.caption("'원문 수집 아니오 (팀 요약)'인 문서는 팀이 정리한 요약이라 원문과 다를 수 있습니다.")
 rows = [{"제목": d.title, "유형": d.source_type, "신뢰도": d.reliability,
          "원문 수집": "예" if d.verified else "아니오 (팀 요약)", "URL": d.url} for d in retriever().docs]
 st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True,
              column_config={"URL": st.column_config.LinkColumn()})
 
 st.subheader("데이터 출처")
+data_label("real", "아래 목록은 공공데이터·공식 통계·법령·보도에서 가져온 실제 자료입니다. 시뮬레이터의 처리시간·확률·인원은 "
+           "여기에 없는 가정값이며, 그 목록은 맨 아래 '필요한 실증·학습 데이터'에 있습니다.")
 sch = schools()
 if sch.empty:
     st.markdown("- **학교 위치**: 없음. `data/schools/gyeonggi_schools.csv`에 전국초중등학교위치표준데이터를 넣으면 반영됩니다.")
@@ -176,3 +179,19 @@ with st.expander("API 키 연결 상태"):
                                     "링크": b["url"]} for b in bills]),
                      hide_index=True, width="stretch",
                      column_config={"링크": st.column_config.LinkColumn("링크", display_text="의안정보")})
+
+
+# ── 가정값을 실증으로 바꾸려면 필요한 데이터 ──
+st.subheader("필요한 실증·학습 데이터")
+data_label("sim", "시뮬레이터에서 아직 가정값인 부분과, 이를 실측으로 바꾸려면 필요한 자료입니다. 우선순위 '상'은 결론을 좌우하는 값입니다.")
+NEEDS = yaml.safe_load((ROOT / "config" / "data_needs.yaml").read_text(encoding="utf-8"))
+COLS = {"priority": "우선순위", "status": "지금", "item": "항목", "current": "현재 값", "need": "필요한 데이터",
+        "why": "왜 필요한가", "how": "받는 방법"}
+for key, label in (("empirical", "실증 데이터 (시뮬레이터 가정값 교체·검증)"), ("learning", "학습·지식 데이터 (에이전트·근거 검색)")):
+    rows = pd.DataFrame(NEEDS.get(key, []))
+    if rows.empty:
+        continue
+    rows = rows.sort_values("priority", key=lambda c: c.map({"상": 0, "중": 1, "하": 2}))
+    st.markdown(f"**{label}** · {len(rows)}개")
+    st.dataframe(rows[list(COLS)].rename(columns=COLS), hide_index=True, width="stretch")
+st.caption("목록은 `config/data_needs.yaml`에 있습니다. 자료를 받으면 `config/measured.yaml`과 구조 설정(`sim/structures/`)에 반영합니다.")

@@ -120,3 +120,38 @@ def llm_badge():
 import i18n  # noqa: E402
 
 i18n.install()
+
+
+# ── 데이터 성격 표기: 가상(시뮬레이션·시나리오) vs 실측 ──
+DATA_KINDS = {
+    "sim": ("orange", "🧪 가상 데이터",
+            "시뮬레이션이 만든 합성 사안입니다. 사안 유입량·유형 비율·관할 비중만 실측에 맞췄고, "
+            "처리시간·확률·인원 대부분은 팀 가정값입니다. 실제 교권보호단의 운영 통계가 아닙니다."),
+    "scenario": ("violet", "🎭 가상 시나리오",
+                 "사안 설정은 기사 사실이나 드라마 설정에서 가져왔지만, 처리 과정과 시간은 시뮬레이션이 만든 것입니다."),
+    "agent": ("violet", "🎭 가상 시뮬레이션",
+              "인물의 행동은 에이전트(또는 오프라인 예시 스크립트)가 지어낸 장면입니다. 법령·조례 판정만 실제 문서를 인용합니다."),
+    "real": ("green", "📏 실측 데이터", "공공데이터·공식 통계·법령 원문에서 옮긴 값입니다."),
+}
+
+
+def data_label(kind: str, detail: str = ""):
+    """차트·표 위에 데이터 성격 배지와 한 줄 설명을 단다."""
+    color, tag, desc = DATA_KINDS[kind]
+    st.caption(f":{color}-badge[{tag}] {detail or desc}")
+
+
+def mark_virtual(fig, text: str = "가상 데이터 · 시뮬레이션 결과"):
+    """plotly 그림 오른쪽 위에 가상 데이터 표기를 넣는다 (그림을 따로 저장·공유해도 남도록)."""
+    fig.add_annotation(text=f"🧪 {text}", xref="paper", yref="paper", x=1, y=1.0, xanchor="right", yanchor="bottom",
+                       showarrow=False, font=dict(size=11, color="#c2410c"),
+                       bgcolor="rgba(251,146,60,.12)", bordercolor="rgba(194,65,12,.35)", borderwidth=1, borderpad=3)
+    return fig
+
+
+def scenario_kind(spec: dict) -> str:
+    """시나리오 이름으로 사실 기반인지 가상인지 표기 문구."""
+    name = spec.get("name", "")
+    if "가상" in name:
+        return "설정부터 가상인 시나리오입니다. 처리 과정도 시뮬레이션입니다."
+    return "사안 설정은 보도된 사실에서 가져왔고, 처리 과정과 시간은 시뮬레이션이 만든 가상 결과입니다."

@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 import fresh  # noqa: E402  새 배포 뒤 낡은 모듈을 먼저 다시 읽는다 (common·sim 을 불러오기 전에)
 
 fresh.ensure()
-from common import chart_style, freeze, llm_badge, retriever, schools_enriched, simulate, structures
+from common import chart_style, data_label, freeze, llm_badge, mark_virtual, retriever, schools_enriched, simulate, structures
 from geo.gyeonggi import OFFICES, hierarchy
 from sim import insights
 from sim import typeffects as TE
@@ -19,6 +19,9 @@ llm_badge()
 st.title("시뮬레이션")
 st.caption("검증하는 가설: H1 통합 장치(Lawrence & Lorsch·Gulick) · H2 사안 유형(Thompson·Perrow) · "
            "H3 환경 압력(Burns & Stalker) · H4 제도화(조례) · H5 인력 안정성(Van de Ven·Woodward). Home의 '가설과 검증' 참고.")
+st.warning("**🧪 이 페이지의 사안·지표·차트는 모두 가상 데이터입니다.** 시뮬레이션이 만든 합성 사안이며 실제 교권보호단 "
+           "운영 통계가 아닙니다. 실측에 맞춘 것은 하루 사안 수(약 3건), 사안 유형 비율, 교육지원청별 비중, 학교 위치뿐이고 "
+           "처리시간·확률·인원은 팀 가정값입니다. 구조 간 차이의 방향을 보는 사고실험으로 읽어 주세요.")
 
 
 def analysis(lines: list[str], title: str = "분석"):
@@ -70,6 +73,7 @@ CS = chart_style()
 summary = summarize(df, "structure")
 
 st.subheader("사안당 평균 지표")
+data_label("sim")
 show = summary.rename(index=names, columns={k: v[0] for k, v in METRICS.items()} | {"cases": "처리 사안 수"})
 st.dataframe(show, width="stretch")
 analysis(insights.overview(summary, short), "핵심 결과")
@@ -81,14 +85,14 @@ with c1:
     fig = px.box(df, x="구조", y="closure_days", color="구조", points=False, title="종결까지 걸린 기간 (근무일)",
                  labels={"closure_days": "근무일"}, **CS)
     fig.update_layout(showlegend=False)
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(mark_virtual(fig), width="stretch")
 with c2:
     m = summary[["contacts", "repeats", "coordination"]].rename(index=short).reset_index(names="구조")
     m = m.melt(id_vars="구조", var_name="지표", value_name="사안당 평균")
     m["지표"] = m["지표"].map(lambda k: METRICS[k][0])
     fig = px.bar(m, x="지표", y="사안당 평균", color="구조", barmode="group",
                  title="조정 부담은 누가 지는가: 교사(접촉·진술) vs 조직(조정 메시지)", **CS)
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(mark_virtual(fig), width="stretch")
 
 st.subheader("관할 교육지원청별 결과")
 st.caption("경기도 초·중·고 2,576곳의 학교 수 비중대로 사안이 생기고, 그 학교 관할 교육지원청의 "
@@ -122,20 +126,24 @@ with m1:
                    for r in mp.itertuples()], hoverinfo="text"))
     fig.update_layout(height=560, margin=dict(l=0, r=0, t=0, b=0), showlegend=False,
                       map=dict(style=MAP["map_style"], zoom=MAP["zoom"], center=MAP["center"]))
+    data_label("sim", "원 크기(사안 수)와 색(위원회 대기)은 가상 데이터입니다. 학교 위치는 :green-badge[📏 실측] "
+               "전국초중등학교위치표준데이터, 교육지원청 위치는 대략 위치입니다.")
     st.plotly_chart(fig, width="stretch")
 with m2:
     tbl = per.pivot_table(index="office", columns="구조", values="위원회_대기일").round(1)
-    st.markdown("**교육지원청별 위원회 대기 (근무일)**")
+    st.markdown("**교육지원청별 위원회 대기 (근무일)** :orange-badge[🧪 가상]")
     st.dataframe(tbl.sort_values(tbl.columns[0], ascending=False), width="stretch", height=520)
 analysis(insights.offices(per, short[which]), f"관할 분석 ({short[which]})")
 with st.expander("감독 구조: 교육부 → 경기도교육청 → 교육지원청 → 위원회·학교"):
     h = hierarchy(sch)
+    data_label("real", "학교 수는 실측(학교 위치 데이터)이고, 감독 관계는 법령·조직도를 바탕으로 정리했습니다.")
     st.plotly_chart(px.sunburst(h, ids="id", parents="parent", names="label", values="value",
                                 hover_data={"role": True}, height=560, maxdepth=3), width="stretch")
     st.caption("교육지원청 위치는 시청 부근 대략 위치입니다. 지역교권보호위원회를 교육지원청에 두는 부분은 "
                "교원지위법 원문 확인이 필요합니다.")
 
 st.subheader("이론별 분석: 사안 특성에 따라 구조 효과가 달라지는가")
+data_label("sim", "아래 점·막대·회귀는 모두 시뮬레이션의 합성 사안입니다. 지원 개수·분석가능성 효과의 크기는 팀 가정값에서 나옵니다.")
 st.caption("H2 (Thompson·Perrow): 필요한 지원이 여럿 얽히고 해결 절차가 불명확한 사안일수록 통합 구조의 효과가 커지는가. "
            "모든 구조에 같은 사안이 똑같이 들어가므로, 사안 하나하나를 짝지어 '구조를 바꾸면 이 사안이 며칠 줄어드는가'를 봅니다.")
 t1, t2, t3 = st.columns([2, 2, 3])
@@ -164,7 +172,7 @@ with tabs[0]:
     fig = px.bar(cst, x=axis, y="mean", color="구조", barmode="group", error_y="ci", hover_data={"n": True, "ci": ":.2f"},
                  labels={"mean": mlabel, axis: axis_label}, **(CS | {"category_orders": CS["category_orders"] | order}))
     fig.update_xaxes(type="category")
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(mark_virtual(fig), width="stretch")
     st.caption("막대는 평균, 오차 막대는 95% 신뢰구간입니다. 막대 위에 마우스를 올리면 사안 수(n)가 나옵니다. "
                "사안이 몇 건 안 되는 유형(예: 장인, 지원 5개)은 오차가 커서 순위를 읽으면 안 됩니다.")
     cf = TE.confound(df, axis)
@@ -197,7 +205,7 @@ with tabs[1]:
                           row=1, col=col)
     fig.update_xaxes(dtick=1)
     fig.update_layout(height=520)
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(mark_virtual(fig), width="stretch")
     tr = TE.trend(sc, "n_needs", metric)
     if not tr.empty:
         st.markdown("**지원 1개당 늘어나는 " + mlabel + "** (추세선 기울기 ± 95% 신뢰구간): " + " · ".join(
@@ -211,7 +219,7 @@ with tabs[2]:
     fig = f(df, x=axis, y=metric, color="구조", labels={metric: mlabel, axis: axis_label},
             **(CS | {"category_orders": CS["category_orders"] | order}), **kw)
     fig.update_xaxes(type="category")
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(mark_virtual(fig), width="stretch")
     st.caption("평균만 보면 긴 꼬리(몇몇 오래 걸린 사안)에 끌려갈 수 있습니다. 상자 가운데 선은 중앙값, 상자는 사안의 가운데 50%입니다.")
 with tabs[3]:
     if not pair_ok:
@@ -233,7 +241,7 @@ with tabs[3]:
         fig.add_hline(y=0, line_dash="dot", line_color="gray")
         fig.update_xaxes(dtick=1)
         fig.update_layout(height=480)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(mark_virtual(fig), width="stretch")
         st.markdown("**Perrow 2×2: 과업다양성 × 분석가능성별 평균 격차**")
         g2 = TE.gap_by(pr, ["variety_high", "analyzable"])
         g2["과업다양성"] = g2["variety_high"].map({False: "낮음 (지원 1~2개)", True: "높음 (지원 3개 이상)"})
@@ -245,7 +253,7 @@ with tabs[3]:
                                       "분석가능성": [ANL[True], ANL[False]]},
                      labels={"mean": f"줄인 {mlabel}"})
         fig.update_traces(textposition="outside")
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(mark_virtual(fig), width="stretch")
         st.caption("Perrow 네 칸: 낮음·높음 = 일상적, 낮음·낮음 = 장인, 높음·높음 = 공학적, 높음·낮음 = 비일상적. "
                    "오른쪽 주황 막대(비일상적)가 가장 높으면 Perrow의 예측과 맞습니다.")
 with tabs[4]:
@@ -279,11 +287,12 @@ if surge:
     fig = px.line(daily, x="접수일", y="closure_days", color="구조",
                   labels={"closure_days": "종결까지 (근무일)"}, **CS)
     fig.add_vrect(x0=surge_day, x1=surge_day + 7, fillcolor="gray", opacity=0.15, line_width=0)
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(mark_virtual(fig), width="stretch")
     st.caption("급증 구간에 접수된 사안일수록 오래 걸리면 구조가 환경 변화를 흡수하지 못한다는 뜻입니다.")
     analysis(insights.surge(df, surge_day), "환경 압력 분석")
 
 st.subheader("결과 설명 (Claude)")
+data_label("sim", "Claude가 풀어 쓰는 숫자도 위 가상 데이터입니다. 인용하는 근거 자료만 실제 문서입니다.")
 st.caption("위 분석은 숫자를 규칙으로 읽은 것입니다. 아래 버튼은 Claude가 근거 자료를 인용해 두 구조의 차이를 풀어 씁니다.")
 base = st.selectbox("기준 구조", picked, index=0, format_func=names.get)
 target = st.selectbox("비교 구조", picked, index=min(len(picked) - 1, 2), format_func=names.get)
