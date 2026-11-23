@@ -46,8 +46,8 @@ def check_key(key: str | None = None, client: httpx.Client | None = None) -> dic
     try:
         rows = fetch_rows(BILLS, key, page_size=10, max_pages=1, client=client, base=BASE,
                           AGE="22", BILL_NAME="교육")
-    except GgDataError as e:
-        return {"ok": False, "reason": str(e)}
+    except Exception as e:  # noqa: BLE001  모듈을 다시 읽은 뒤 GgDataError 클래스가 달라져도 화면이 죽지 않게
+        return {"ok": False, "reason": f"연결 실패: {e}" if isinstance(e, RuntimeError) else f"연결 실패 ({type(e).__name__})"}
     if len(rows) <= SAMPLE_ROWS:
         return {"ok": False, "reason": f"샘플 {len(rows)}건만 받음 (키 승인 전일 수 있음)", "rows": len(rows)}
     return {"ok": True, "reason": "정상", "rows": len(rows)}
