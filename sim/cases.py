@@ -35,6 +35,7 @@ class Case:
     label: str = ""               # 시나리오 사안 이름
     office: str = ""              # 관할 교육지원청 (지도 모드)
     committee_wait: float = 0.0   # 위원회 심의까지 기다린 시간(h)
+    committee: bool = False       # 지역교권보호위원회 심의를 거쳤는가
     # 결과 기록
     first_response: float | None = None
     closed: float | None = None
@@ -44,6 +45,7 @@ class Case:
     duplicates: int = 0           # 같은 업무를 두 기관이 중복 수행
     handoffs: int = 0             # 담당자 공백·교체
     misroutes: int = 0            # 잘못된 창구로 안내
+    reworks: int = 0              # 해결법이 불명확해 판단을 다시 맞춘 횟수 (Perrow 분석가능성)
     guard_blocks: int = 0         # 권한 밖 행동을 근거 조문으로 막은 횟수
     witnesses: int = 0            # 참고인 진술 수 (서식 4)
     mediation: bool = False       # 분쟁조정 신청 여부 (서식 5)
