@@ -184,7 +184,7 @@ DATA_SOURCES = ROOT / "config" / "data_sources.yaml"
 
 
 def data_sources_table() -> pd.DataFrame:
-    """config/data_sources.yaml 의 출처 목록 (실측 데이터 화면·README 표)."""
+    """config/data_sources.yaml 의 출처 목록 (README 표)."""
     if not DATA_SOURCES.exists():
         return pd.DataFrame()
     rows = (yaml.safe_load(DATA_SOURCES.read_text(encoding="utf-8")) or {}).get("sources") or []

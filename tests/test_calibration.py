@@ -105,13 +105,3 @@ def test_assumption_table_marks_measured_and_assumed():
     t = cal.assumption_table()
     assert {"반영", "가정 유지 (정보공개청구 필요)"} <= set(t["시뮬레이터"])
     assert t["출처"].str.contains("교육부").any()
-
-
-def test_dashboard_page_renders(monkeypatch):
-    import sys
-    from streamlit.testing.v1 import AppTest
-    monkeypatch.syspath_prepend(str(ROOT / "app"))
-    sys.modules.pop("common", None)
-    at = AppTest.from_file(str(ROOT / "app" / "pages" / "5_실측_데이터.py"), default_timeout=60).run()
-    assert not at.exception
-    assert any("실측" in t.value for t in at.title)
