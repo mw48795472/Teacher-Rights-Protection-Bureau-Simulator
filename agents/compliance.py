@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from rag.labels import tag_suffix
 from rag.retriever import Hit, Retriever
 
 from .llm import LLMUnavailable, call_structured
@@ -79,7 +80,7 @@ class ComplianceAgent:
         kind = "공적 주체" if (role is None or role.is_official) else "사인(私人)"
         evidence = "\n\n".join(
             f"[{h.doc.id}] {h.doc.title} (신뢰도 {h.doc.reliability}"
-            f"{', ' + h.doc.source_tag if h.doc.source_tag else ''})\n{h.doc.text}"
+            f"{tag_suffix(h.doc)})\n{h.doc.text}"
             for h in hits
         )
         user = (

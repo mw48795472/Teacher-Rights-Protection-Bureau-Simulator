@@ -7,6 +7,7 @@ import fresh  # noqa: E402  새 배포 뒤 낡은 모듈을 먼저 다시 읽는
 fresh.ensure()
 from common import ROOT, data_label, llm_badge, neis_status, retriever, schools
 from rag.answer import answer
+from rag.labels import has_link
 
 st.set_page_config(page_title="근거 자료", page_icon="🏫", layout="wide")
 llm_badge()
@@ -92,7 +93,7 @@ if q:
 st.subheader("전체 지식베이스")
 st.caption("'원문 링크'는 팀이 요약했지만 원문 링크가 있는 자료입니다. '팀 요약'은 링크도 없어 원문 확인이 필요합니다.")
 rows = [{"제목": d.title, "유형": d.source_type, "신뢰도": d.reliability,
-         "원문 수집": "예" if d.verified else ("원문 링크" if d.has_link else "아니오 (팀 요약)"), "URL": d.url} for d in retriever().docs]
+         "원문 수집": "예" if d.verified else ("원문 링크" if has_link(d) else "아니오 (팀 요약)"), "URL": d.url} for d in retriever().docs]
 st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True,
              column_config={"URL": st.column_config.LinkColumn()})
 

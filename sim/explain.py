@@ -9,6 +9,8 @@ import os
 
 import pandas as pd
 
+from rag.labels import tag_suffix
+
 from .metrics import METRICS
 
 SYSTEM = """너는 조직이론 수업 팀 발표를 돕는 분석가다. 경기도교육청 교권보호단을 다룬 시뮬레이션 결과를 설명한다.
@@ -77,7 +79,7 @@ def explain(summary: pd.DataFrame, base: str, target: str, retriever, context: s
     import anthropic
 
     evidence = "\n".join(
-        f"[{i}] {h.doc.title} (신뢰도 {h.doc.reliability}{', ' + h.doc.source_tag if h.doc.source_tag else ''}): {h.doc.text}"
+        f"[{i}] {h.doc.title} (신뢰도 {h.doc.reliability}{tag_suffix(h.doc)}): {h.doc.text}"
         for i, h in enumerate(hits, 1)
     )
     prompt = (

@@ -69,6 +69,9 @@ def ensure() -> list[str]:
         try:
             import streamlit as st
             st.cache_data.clear()
+            # 지식베이스(retriever)처럼 cache_resource 에 든 객체도 옛 클래스로 만든 것이라 함께 비운다.
+            # 비우지 않으면 새 코드가 옛 Document 의 없는 속성을 읽다 AttributeError 가 난다.
+            st.cache_resource.clear()
         except Exception:  # noqa: BLE001
             pass
     for n, m in mods.items():
