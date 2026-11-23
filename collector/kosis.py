@@ -225,6 +225,25 @@ def _level_candidates(level: dict, client=None) -> list[dict]:
     return out
 
 
+def read_kess_file(path: str | Path) -> pd.DataFrame:
+    """KESS(교육통계서비스) 시도별 교원수 엑셀/CSV → 시도·연도·교원수.
+    모양: 열 = 연도, 학제, 교원수(전국), 서울 … 제주. 학제가 '소계'인 행(학제 합계)만 쓴다. '-' 는 빈 값."""
+    path = Path(path)
+    if not path.is_absolute():
+        path = ROOT / path
+    raw = pd.read_excel(path, header=0) if path.suffix.lower() in (".xlsx", ".xls") else pd.read_csv(path)
+    raw.columns = [str(c).strip() for c in raw.columns]
+    if "학제" in raw:
+        tot = raw[raw["학제"].astype(str).str.strip().isin(("소계",) + TOTAL)]
+        raw = tot if not tot.empty else raw
+    raw = raw[pd.to_numeric(raw["연도"], errors="coerce").notna()]
+    long = raw[["연도"] + [c for c in raw.columns if sido_exact(c)]].melt(id_vars=["연도"], var_name="시도", value_name="교원수")
+    long["시도"] = long["시도"].map(sido_exact)
+    long["연도"] = pd.to_numeric(long["연도"]).astype(int)
+    long["교원수"] = pd.to_numeric(long["교원수"].astype(str).str.replace(",", ""), errors="coerce")
+    return long.dropna(subset=["교원수"]).groupby(["시도", "연도"], as_index=False)["교원수"].sum()
+
+
 def fetch_levels(t: dict, client=None) -> pd.DataFrame:
     """학교급별 표(초·중·고 …)를 각각 읽어 시도·연도별로 더한다.
     결과 열: 시도, 연도, 학교급별 교원 수 열, 교원수(합계). 읽은 학교급이 모두 있는 연도만 남긴다.
@@ -234,27 +253,36 @@ def fetch_levels(t: dict, client=None) -> pd.DataFrame:
     parts, used, missing = [], [], []
     for lv in t["levels"]:
         name = lv.get("name", "")
-        cands = _level_candidates(lv, client)
-        if not cands:
-            missing.append(f"{name}(표 못 찾음)")
-            continue
+        cands = _level_candidates(lv, client) if kosis_key() else []
         fails = []
         for c in cands[:4]:
             df, why = read_table(str(c["ORG_ID"]), c["TBL_ID"], t, client)
             if not df.empty:
                 parts.append(df.rename(columns={"교원수": name}).set_index(["시도", "연도"]))
-                used.append(f"{name} {c['ORG_ID']}/{c['TBL_ID']}")
+                used.append(f"{name} KOSIS {c['ORG_ID']}/{c['TBL_ID']}")
                 break
             fails.append(f"{c['ORG_ID']}/{c['TBL_ID']}: {why}")
         else:
-            missing.append(f"{name}(" + "; ".join(fails) + ")")
+            # KOSIS 에서 못 받으면 파일(file:)로 채운다 (예: KESS 에서 내려받은 고등학교 시도별 교원수)
+            df = None
+            if lv.get("file"):
+                try:
+                    df = read_kess_file(lv["file"])
+                except Exception as e:  # 파일이 없거나 모양이 다르면 사유만 남긴다
+                    fails.append(f"파일 {lv['file']}: {type(e).__name__}")
+            if df is not None and df["시도"].nunique() >= 10:
+                parts.append(df.rename(columns={"교원수": name}).set_index(["시도", "연도"]))
+                used.append(f"{name} {lv.get('file_label') or Path(lv['file']).name}")
+            else:
+                missing.append(f"{name}(" + ("; ".join(fails) or "표 못 찾음") + ")")
     if not parts:
         raise KosisError("학교급별 교원 수 표를 읽지 못함: " + "; ".join(missing))
     wide = pd.concat(parts, axis=1).dropna().reset_index()
     names = [p.columns[0] for p in parts]
     wide["교원수"] = wide[names].sum(axis=1)
     wide[names + ["교원수"]] = wide[names + ["교원수"]].astype(int)
-    wide.attrs["table"] = "KOSIS " + ", ".join(used)
+    wide.attrs["table"] = ", ".join(used)
+    wide["출처"] = wide.attrs["table"]
     wide.attrs["missing"] = missing
     return wide
 

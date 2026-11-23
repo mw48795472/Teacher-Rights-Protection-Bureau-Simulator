@@ -50,8 +50,11 @@ with t2:
                                title="교원 1천 명당 지역교보위 심의 건수 (2024.3.28~6.30)"), width="stretch")
         st.dataframe(s, hide_index=True, width="stretch")
         _lv = [c for c in ("유치원", "초등학교", "중학교", "고등학교", "특수학교") if c in tc.columns]
+        _src = str(tc["출처"].dropna().iloc[0]) if "출처" in tc and tc["출처"].notna().any() else ""
         st.caption("출처: 심의 건수는 의원실 발표 보도, 교원 수는 "
-                   + (f"KOSIS e-지방지표 {'+'.join(_lv)} 교원 수 합계." if _lv else "KESS·KOSIS."))
+                   + (f"{'+'.join(_lv)} 교원 수 합계 ({_src})." if _lv and _src else
+                      f"KOSIS {'+'.join(_lv)} 교원 수 합계." if _lv else "KESS·KOSIS.")
+                   + " 교원 수는 정규·기간제 교원 합(강사 제외).")
 
 with t3:
     s = tr.sido_2024()
