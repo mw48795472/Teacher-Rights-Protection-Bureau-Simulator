@@ -1,0 +1,30 @@
+# 실제 수집 대상. 팀원이 링크를 추가하면 다음 수집에 반영됩니다.
+# 법령·조례는 국가법령정보센터 Open API(LAW_OC 필요)로, 나머지는 HTML 파싱으로 수집합니다.
+laws:            # target=law (법률)
+  - 교원의 지위 향상 및 교육활동 보호를 위한 특별법
+  - 초·중등교육법
+  - 유아교육법
+  - 교육기본법
+  - 아동학대범죄의 처벌 등에 관한 특례법
+ordinances:      # target=ordin (자치법규)
+  - name: 경기도교육청 교권보호전담관 운영 조례
+    mst: "2176205"   # ordinSeq. 검색으로 찾지 못할 때 사용
+pages:           # HTML 수집 (본문은 분석용 로컬 캐시에만 저장)
+  - url: https://more.goe.go.kr/eapc/subList/20000000413
+    reliability: A
+  - url: https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=105198&lev=0&m=020402
+    reliability: A
+  - url: https://www.ggc.go.kr/site/main/xb/lwmkr/lawmakerpressrelease/297803
+    reliability: A
+  - url: https://www.education.gouv.fr/bo/2024/Hebdo14/MENE2409242C
+    reliability: A
+  - url: https://www.ajunews.com/view/20260721172724067
+    reliability: C
+  - url: https://m.go.seoul.co.kr/news/2026/07/22/20260722500310
+    reliability: C
+  - url: https://m.anewsa.com/article_sub3.php?number=3209842
+    reliability: C
+  - url: https://www.kyeongin.com/article/1768780
+    reliability: C
+  - url: https://www.pressian.com/pages/articles/2026091817035275725
+    reliability: C
