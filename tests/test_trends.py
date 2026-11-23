@@ -244,3 +244,35 @@ def test_schoolinfo_fetch_parses_list():
     with httpx.Client(transport=httpx.MockTransport(handler)) as c:
         df = schoolinfo.fetch("09", 2025, "03", key="k", client=c)
     assert list(df["SCHUL_CODE"]) == ["S1"] and df["공시연도"].iloc[0] == 2025
+
+
+def test_kosis_levels_sum_skip_sigungu_and_retry(monkeypatch):
+    """e-지방지표 모양: 시도 아래 시군구 행이 섞이고, 기간 지정은 오류 → 최근 N개 시점으로 다시 받는다."""
+    from collector import kosis
+    monkeypatch.setenv("KOSIS_KEY", "x")
+    full = list({v: k for k, v in kosis.SIDO_FULL.items()}.values())
+    calls = []
+
+    def fake(path, client=None, **p):
+        if path == "statisticsSearch.do":
+            q = p["searchNm"]
+            return [{"ORG_ID": "101", "TBL_ID": "DT_" + q[:1], "TBL_NM": f"{q}(시도/시/군/구)"},
+                    {"ORG_ID": "101", "TBL_ID": "DT_R", "TBL_NM": "교원 1인당 학생수(시도/시/군/구)"}]
+        calls.append(p)
+        if "startPrdDe" in p:
+            raise kosis.KosisError("21: 요청변수값이 잘못되었습니다")
+        base = {"DT_1YL21251": 100, "DT_중": 50, "DT_고": 40}[p["tblId"]]
+        rows = [{"C1": "11", "C1_NM": n, "PRD_DE": "2024", "DT": str(base), "ITM_NM": "교원수"} for n in full]
+        rows += [{"C1": "21050", "C1_NM": "부산진구", "PRD_DE": "2024", "DT": "9999", "ITM_NM": "교원수"},
+                 {"C1": "31260", "C1_NM": "광주시", "PRD_DE": "2024", "DT": "9999", "ITM_NM": "교원수"},
+                 {"C1": "11", "C1_NM": "서울특별시", "PRD_DE": "2024", "DT": "7", "ITM_NM": "여교원수"}]
+        return rows
+    monkeypatch.setattr(kosis, "_get", fake)
+    import yaml
+    cfg = yaml.safe_load(kosis.CFG.read_text(encoding="utf-8"))
+    df = kosis.fetch_teachers(cfg).set_index("시도")
+    assert len(df) == 17 and (df["교원수"] == 190).all()
+    assert df.loc["부산", "초등학교"] == 100 and df.loc["광주", "교원수"] == 190
+    assert "DT_1YL21251" in df.attrs["table"] and not df.attrs["missing"]
+    assert any("newEstPrdCnt" in c for c in calls)
+    assert kosis.sido_exact("부산진구") is None and kosis.sido_exact("강원특별자치도") == "강원"

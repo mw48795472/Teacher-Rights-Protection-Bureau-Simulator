@@ -49,7 +49,9 @@ with t2:
         st.plotly_chart(px.bar(s.sort_values(col, ascending=False), x="시도", y=col,
                                title="교원 1천 명당 지역교보위 심의 건수 (2024.3.28~6.30)"), width="stretch")
         st.dataframe(s, hide_index=True, width="stretch")
-        st.caption("출처: 심의 건수는 의원실 발표 보도, 교원 수는 KESS.")
+        _lv = [c for c in ("유치원", "초등학교", "중학교", "고등학교", "특수학교") if c in tc.columns]
+        st.caption("출처: 심의 건수는 의원실 발표 보도, 교원 수는 "
+                   + (f"KOSIS e-지방지표 {'+'.join(_lv)} 교원 수 합계." if _lv else "KESS·KOSIS."))
 
 with t3:
     s = tr.sido_2024()
