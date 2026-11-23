@@ -64,6 +64,9 @@ class SimConfig:
     surge_multiplier: float = 2.0
     surge_days: int = 7
     overrides: dict = field(default_factory=dict)
+    # 지도 모드: 교육지원청별 사안 비중 {이름: 가중치}. 주어지면 위원회가 교육지원청마다 따로 열린다.
+    offices: dict | None = None
+    committee_capacity: int = 6         # 위원회 1회 심의 건수 (가정)
 
     @property
     def params(self) -> dict:
@@ -98,6 +101,10 @@ class Simulation:
         self.cases: list[Case] = []
         self._ids = itertools.count(1)
         self._scenario_ids = itertools.count(9001)
+        self.geo_rng = random.Random(cfg.seed + 20_000)
+        self.office_names = list(cfg.offices or {})
+        self.office_w = [cfg.offices[k] for k in self.office_names] if cfg.offices else []
+        self.slots: dict[str, dict[int, int]] = {k: {} for k in self.office_names}
         kind = cfg.structure["kind"]
         self.kind = kind
         if kind == "distributed":
@@ -126,6 +133,23 @@ class Simulation:
         interval = self.p["committee_interval_days"] * HOURS_PER_DAY
         return interval - (self.env.now % interval)
 
+    def committee_wait(self, c: Case) -> float:
+        """다음 위원회까지 기다릴 시간. 지도 모드에서는 관할 교육지원청 위원회가 정원만큼만 심의하고
+        넘치는 사안은 다음 회의로 밀린다. 교육지원청마다 개최일이 다르다."""
+        if not c.office:
+            c.committee_wait = self.next_committee()
+            return c.committee_wait
+        interval = self.p["committee_interval_days"] * HOURS_PER_DAY
+        offset = (self.office_names.index(c.office) / len(self.office_names)) * interval
+        k = max(0, math.floor((self.env.now - offset) / interval) + 1)
+        used = self.slots[c.office]
+        while used.get(k, 0) >= self.cfg.committee_capacity:
+            k += 1
+        used[k] = used.get(k, 0) + 1
+        wait = offset + k * interval - self.env.now
+        c.committee_wait = wait
+        return wait
+
     def police(self) -> float:
         return POLICE_DELAY_MEDIAN * math.exp(self.rng.gauss(0, 0.5))
 
@@ -146,6 +170,8 @@ class Simulation:
             self.start(random_case(self.arr_rng, self.env.now, next(self._ids)))
 
     def start(self, case: Case):
+        if self.office_names and not case.office:
+            case.office = self.geo_rng.choices(self.office_names, weights=self.office_w)[0]
         self.cases.append(case)
         proc = self.distributed if self.kind == "distributed" else self.integrated
         self.env.process(proc(case))
@@ -210,8 +236,8 @@ class Simulation:
             c.contacts += 1
             c.repeats += 1
             c.log(env.now, "피해 교원", "지역교권보호위원회 심의 직접 신청", self.cite("committee"))
-            yield env.timeout(self.next_committee())
-            c.log(env.now, "지역교권보호위원회", "심의·조치", self.cite("committee_rare"))
+            yield env.timeout(self.committee_wait(c))
+            c.log(env.now, f"{c.office + ' ' if c.office else ''}지역교권보호위원회", "심의·조치", self.cite("committee_rare"))
         c.closed = env.now
         c.log(env.now, "피해 교원", "사안 종결 (사후 관리는 교사 몫)")
 
@@ -269,8 +295,8 @@ class Simulation:
                 yield env.timeout(2)
             if self.needs_committee(c):
                 c.coordination += 1
-                yield env.timeout(self.next_committee())
-                c.log(env.now, "지역교권보호위원회", "심의·조치 (전담관이 자료 제출)", self.cite("committee"))
+                yield env.timeout(self.committee_wait(c))
+                c.log(env.now, f"{c.office + ' ' if c.office else ''}지역교권보호위원회", "심의·조치 (전담관이 자료 제출)", self.cite("committee"))
             c.closed = env.now
             c.log(env.now, "상근 전담관", "사안 종결 → 사후 관리로 전환", self.cite("officer_duty"))
 

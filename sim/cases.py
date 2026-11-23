@@ -31,6 +31,8 @@ class Case:
     analyzable: bool              # 해결 절차가 명확한가 (Perrow 분석가능성)
     arrival: float = 0.0          # 근무시간(h)
     label: str = ""               # 시나리오 사안 이름
+    office: str = ""              # 관할 교육지원청 (지도 모드)
+    committee_wait: float = 0.0   # 위원회 심의까지 기다린 시간(h)
     # 결과 기록
     first_response: float | None = None
     closed: float | None = None
@@ -79,4 +81,5 @@ def random_case(rng: random.Random, arrival: float, case_id: int) -> Case:
 
 def scenario_case(spec: dict, arrival: float, case_id: int) -> Case:
     return Case(case_id, spec["type"], int(spec["severity"]), tuple(spec["needs"]),
-                bool(spec.get("analyzable", False)), arrival, label=spec["name"])
+                bool(spec.get("analyzable", False)), arrival, label=spec["name"],
+                office=spec.get("office", ""))
