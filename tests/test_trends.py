@@ -326,3 +326,19 @@ def test_kess_high_school_file_fallback(monkeypatch):
     s = df.set_index("시도")
     assert list(df["연도"].unique()) == [2024] and s.loc["서울", "교원수"] == 100 + 20184
     assert "고등학교 KESS 파일" in df.attrs["table"] and "KESS 파일" in df["출처"].iloc[0]
+
+
+def test_schoolinfo_students_auto_fetch_once(monkeypatch, tmp_path):
+    from collector import schoolinfo
+    monkeypatch.setattr(schoolinfo, "OUT", tmp_path)
+    monkeypatch.setattr(schoolinfo, "_AUTO", {"tried": False, "note": ""})
+    monkeypatch.setenv("SCHOOLINFO_KEY", "k")
+    calls = []
+
+    def fake_collect(log=print, **_):
+        calls.append(1)
+        return {"students_by_grade": pd.DataFrame([{"공시연도": 2024, "ADRES_BRKDN": "경기도 수원시", "COL_STDNT_SUM": "10"}])}
+    monkeypatch.setattr(schoolinfo, "collect", fake_collect)
+    assert schoolinfo.students().set_index("시도")["학생수"]["경기"] == 10
+    schoolinfo.students()
+    assert len(calls) == 1

@@ -298,7 +298,7 @@ def school_violence_sido() -> pd.DataFrame:
     df["학생수 기준"] = "2026 공시"
     try:   # SCHOOLINFO_KEY로 받은 연도별 학생 수가 있으면 그 해(공시연도 = 학년도) 학생 수로 바꾼다
         from collector import schoolinfo
-        st_ = schoolinfo.students_by_sido(schoolinfo.saved())
+        st_ = schoolinfo.students()
     except Exception:
         st_ = pd.DataFrame()
     if not st_.empty:
