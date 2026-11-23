@@ -165,6 +165,10 @@ tests/
 | 경기도교육청 | [행정구역별 학제별 학급·학생·교원](https://www.data.go.kr/data/15077331/fileData.do) | 2025-04-01 | XLSX → data/measured/gyeonggi_offices.csv | - | 교육지원청별 사안 비중(교원 수 비례) |
 | 보건복지부 | [아동학대 발생 현황 (시도별)](https://www.data.go.kr/data/15127920/fileData.do) | 2024-12-31 | CSV | - | 참고 자료 (시뮬레이터 값에는 안 씀) |
 | 경찰청 | [아동학대 검거 및 조치 현황](https://www.data.go.kr/data/15037062/fileData.do) | 2023-12-31 | CSV | - | 참고 자료 (시뮬레이터 값에는 안 씀) |
+| 교육부 학교알리미 공시 (school-violence-map 공개 집계) | [학교폭력 심의 결과·학교장 자체해결 (초·중·고 약 1만 2천 곳, 2023~2026 공시)](https://geeksbaek.github.io/school-violence-map/) | 2026-05-16 수집 | JSON → data/measured/school_violence_sido.csv | - | 실측 분석 ⑦ 학교폭력 심의율과 교보위 심의 회귀 |
+| 시·도교육청 (보도자료·지역 언론) | 학교폭력 실태조사 1차 시도별 피해응답률 2022~2026 (시도별 출처는 CSV 출처 칸) | 매년 9월 발표 | 보도 본문 → data/measured/school_violence_survey_sido.csv | - | 실측 분석 ⑦ 피해응답률 회귀 (신뢰도 C) |
+| 경찰청 자료 인용 보도 | [시도별 촉법소년 소년부 송치 (7개 시도 일부)](https://www.kyeonggi.com/article/20251006580034) | 2024~2025 보도 | 기사 본문 → data/measured/juvenile_crime_sido.csv | - | 실측 분석 ⑦ 참고 추이 |
+| 한국교육학술정보원 (학교알리미) | [공시정보 Open API (학년별·학급별 학생수 등)](https://www.schoolinfo.go.kr/ng/go/pnnggo_a01_m0.do) | 수시 | Open API (config/schoolinfo.yaml) | `SCHOOLINFO_KEY` | 실측 분석 ⑦ 연도별 학생 수 (python -m collector.schoolinfo) |
 
 **위치·기관**
 

@@ -58,7 +58,7 @@ def test_analysis_page_renders(monkeypatch):
     sys.modules.pop("common", None)
     at = AppTest.from_file(str(ROOT / "app" / "pages" / "5_실측_분석.py"), default_timeout=60).run()
     assert not at.exception
-    assert len(at.tabs) == 6
+    assert len(at.tabs) == 7
 
 
 def test_kosis_teachers_table_and_no_key(monkeypatch):
@@ -190,3 +190,57 @@ def test_kosis_url_and_relaxed_search(monkeypatch):
         {"ORG_ID": "334", "TBL_ID": "DT_Y", "TBL_NM": "학교급별 학생수"}])
     c = kosis.candidate_tables({"orgId": "334"})
     assert [r["TBL_ID"] for r in c] == ["DT_X"] and "DT_Y" in kosis.hits_summary()
+
+
+def test_school_violence_sido_totals():
+    sv = tr.school_violence_sido()
+    assert set(sv["시도"]) == set(tr.SIDO_SHORT.values())
+    assert (sv["학년도"] == sv["공시연도"] - 1).all()
+    gg = sv[(sv["시도"] == "경기") & (sv["학년도"] == 2024)].iloc[0]
+    assert gg["학폭심의건수"] == 9704
+    types = ["신체폭력", "언어폭력", "금품갈취", "강요", "따돌림", "성폭력", "사이버폭력", "기타"]
+    assert (sv[types].sum(axis=1) >= sv["학폭심의건수"] * 0.9).all()  # 한 사안에 유형이 여럿일 수 있다
+
+
+def test_committee_vs_delinquency_regression():
+    d = tr.committee_vs_delinquency(2024)
+    assert len(d) == 17 and d[tr.COMMITTEE_RATE].notna().all()
+    reg, table = tr.simple_regression(d, "학폭 심의 / 학생 1천 명", tr.COMMITTEE_RATE)
+    assert reg["n"] == 17 and 0 <= reg["r2"] <= 1 and 0 <= reg["p"] <= 1
+    assert "잔차 (실제−예측)" in table
+    assert tr.simple_regression(d.head(2), "학폭 심의 / 학생 1천 명", tr.COMMITTEE_RATE)[0] == {}
+
+
+def test_delinquency_panel_merges_optional_files(tmp_path, monkeypatch):
+    v = tmp_path / "v.csv"
+    v.write_text("시도,연도,피해응답률,출처\n경기도,2024,2.0,x\n서울,2024,2.2,x\n", encoding="utf-8")
+    j = tmp_path / "j.csv"
+    j.write_text("시도,연도,지표,값,출처\n경기,2024,소년범죄 검거인원,9000,x\n", encoding="utf-8")
+    monkeypatch.setattr(tr, "SV_SURVEY", v)
+    monkeypatch.setattr(tr, "JUVENILE", j)
+    p = tr.delinquency_panel().set_index(["시도", "연도"])
+    assert p.loc[("경기", 2024), "피해응답률(%)"] == 2.0
+    assert p.loc[("경기", 2024), "소년범죄 검거인원"] == 9000
+
+
+def test_schoolinfo_students_by_sido_and_no_key(monkeypatch):
+    from collector import schoolinfo
+    monkeypatch.delenv("SCHOOLINFO_KEY", raising=False)
+    assert schoolinfo.check()["reason"] == "SCHOOLINFO_KEY 없음"
+    df = pd.DataFrame([{"공시연도": 2024, "학교급코드": "03", "ADRES_BRKDN": "경기도 수원시 장안구", "COL_STDNT_SUM": "300"},
+                       {"공시연도": 2024, "학교급코드": "03", "ADRES_BRKDN": "경상남도 창원시", "COL_STDNT_SUM": "200"},
+                       {"공시연도": 2024, "학교급코드": "02", "ADRES_BRKDN": "경기도 화성시", "COL_STDNT_SUM": "100"}])
+    s = schoolinfo.students_by_sido(df).set_index("시도")["학생수"]
+    assert s["경기"] == 400 and s["경남"] == 200
+
+
+def test_schoolinfo_fetch_parses_list():
+    import httpx
+    from collector import schoolinfo
+
+    def handler(req):
+        assert req.url.params["apiType"] == "09" and req.url.params["pbanYr"] == "2025"
+        return httpx.Response(200, json={"resultCode": "success", "resultMsg": "정상", "list": [{"SCHUL_CODE": "S1"}]})
+    with httpx.Client(transport=httpx.MockTransport(handler)) as c:
+        df = schoolinfo.fetch("09", 2025, "03", key="k", client=c)
+    assert list(df["SCHUL_CODE"]) == ["S1"] and df["공시연도"].iloc[0] == 2025

@@ -1,0 +1,11 @@
+# 학교알리미(schoolinfo.go.kr) 공시정보 Open API 설정. 키는 SCHOOLINFO_KEY (Streamlit Secrets / .env).
+# 요청: https://www.schoolinfo.go.kr/openApi.do?apiKey=…&apiType=…&pbanYr=…&schulKndCode=…[&sidoCode=…&sggCode=…]
+# 주의: Open API는 학교 기본정보·학생수 등 17종만 주고, '학교폭력 심의 결과'(공시 항목 69)·'학교장 자체해결'(75)은
+# 제공하지 않는다(공시 화면에서만 보임). 그래서 학교폭력 값은 data/measured/school_violence_sido.csv(공시 집계)를 쓰고,
+# 이 키로는 연도별 학생 수를 받아 학폭 심의율의 분모를 연도마다 맞춘다.
+# apiType 번호는 학교알리미 'OpenAPI_Output.xlsx'(API 이용안내) 기준. `python -m collector.schoolinfo --check`로 응답 칸을 본다.
+years: [2023, 2024, 2025, 2026]          # 공시연도
+school_kinds: {"02": 초등, "03": 중학교, "04": 고등학교}
+services:
+  - name: students_by_grade
+    apiType: "09"                         # 학년별·학급별 학생수

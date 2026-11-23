@@ -14,8 +14,9 @@ st.caption("저장소에 있는 공공 원자료만으로 계산합니다. 가�
            "자료가 아직 없는 분석은 자리만 두고, 파일이 들어오면 자동으로 채워집니다.")
 data_label("real", "이 화면의 모든 값은 공공 원자료 또는 보도된 공식 집계입니다. 보도 값은 신뢰도 C로 따로 표시합니다.")
 
-t1, t2, t3, t4, t5, t6 = st.tabs(["① 추세·교권5법 전후", "② 교원 1천 명당", "③ 시도 비교 (2024)",
-                                  "④ 아동학대 신고 흐름", "⑤ 교권보호단 출범 효과", "⑥ 시도교육청 재정"])
+t1, t2, t3, t4, t5, t6, t7 = st.tabs(["① 추세·교권5법 전후", "② 교원 1천 명당", "③ 시도 비교 (2024)",
+                                      "④ 아동학대 신고 흐름", "⑤ 교권보호단 출범 효과", "⑥ 시도교육청 재정",
+                                      "⑦ 학교폭력·청소년 비행"])
 
 with t1:
     tot = tr.committee_totals()
@@ -178,3 +179,84 @@ with t6:
             st.dataframe(bd.head(200), hide_index=True, width="stretch")
     else:
         st.warning(f"지방교육재정알리미에서 자료를 받지 못했습니다 ({status}). 위 '연결 상태'에 서버 응답 앞부분이 나옵니다.")
+
+
+with t7:
+    st.caption("교보위 사안의 약 89%는 학생이 침해 주체입니다(2024 인천 보도). 학교폭력·청소년 비행이 많은 시도일수록 "
+               "교권 침해 심의도 많은지 시도×연도 패널로 봅니다.")
+    data_label("real", "학교폭력 심의는 학교알리미 공시, 피해응답률은 교육부·시도교육청 실태조사, 소년범죄는 공식 범죄통계입니다. "
+                       "교보위 심의 건수는 보도 값(신뢰도 C)입니다.")
+    sv = tr.school_violence_sido()
+    if sv.empty:
+        st.info("학교폭력 공시 파일(data/measured/school_violence_sido.csv)이 아직 없습니다.")
+    else:
+        st.plotly_chart(px.line(sv, x="학년도", y="학폭 심의 / 학생 1천 명", color="시도", markers=True,
+                                title="시도별 학교폭력 심의 건수 (학생 1천 명당)".update_xaxes(dtick=1)), width="stretch")
+        st.caption("학교알리미 '학교폭력 심의 결과' 공시(전국 초·중·고 약 1만 2천 곳)를 시도별로 더했습니다. 4월 공시는 전 학년도 실적이라 "
+                   "공시연도에서 1을 뺀 학년도로 표시합니다. 공시 원자료는 학교알리미 화면에만 있어 공개 집계(school-violence-map)에서 받았습니다.")
+        if (sv["학생수 기준"] == "2026 공시").any():
+            st.caption("학생 수는 2026 공시 기준이라 연도별 학생 수 변화는 반영하지 못합니다. Streamlit Secrets에 `SCHOOLINFO_KEY`를 넣고 "
+                       "`python -m collector.schoolinfo`를 돌리면 연도별 학생 수로 바뀝니다.")
+    with st.expander("연결 상태 (학교알리미 Open API)"):
+        from collector import schoolinfo as _si
+        _ss = st.cache_data(ttl=3600, show_spinner=False)(_si.check)()
+        st.write(("✅ " if _ss["ok"] else "⚠️ ") + _ss["reason"])
+        if _ss.get("columns"):
+            st.caption("응답 칸: " + ", ".join(map(str, _ss["columns"])))
+        st.caption("학교알리미 Open API에는 학교폭력 심의 결과 항목이 없어, 이 키는 연도별 학생 수(분모)에만 씁니다.")
+    vr = tr.victim_rate()
+    if not vr.empty:
+        st.plotly_chart(px.line(vr.sort_values("연도"), x="연도", y="피해응답률", color="시도", markers=True,
+                                title="학교폭력 실태조사 피해응답률 (1차 전수조사, %)".update_xaxes(dtick=1)), width="stretch")
+        st.caption("시도교육청 보도자료와 지역 언론 보도에서 옮긴 시도별 값입니다(교육부 발표에는 전국값만 있음). 빈 칸은 해당 연도 "
+                   "보도에서 값을 찾지 못한 경우이고, 전년 대비 증감만 보도된 값은 계산값입니다(출처 표의 비고). 2차 표본조사 값은 섞지 않았습니다. "
+                   "전북 2023은 전국 1차에 불참하고 자체 조사한 값이라 비교에 주의하세요.")
+        with st.expander("피해응답률 출처 표"):
+            st.dataframe(vr, hide_index=True, width="stretch")
+    jc = tr.juvenile_crime()
+    if not jc.empty:
+        st.plotly_chart(px.line(jc.sort_values("연도"), x="연도", y="값", color="시도", line_dash="지표", markers=True,
+                                title="시도별 촉법소년 (보도 값)".update_xaxes(dtick=1)), width="stretch")
+        st.caption(f"경찰청 자료를 인용한 보도(의원실 국감 자료·정보공개)에서 옮긴 값이라 {jc['시도'].nunique()}개 시도만 있습니다(신뢰도 C). "
+                   "17개 시도가 다 모이지 않아 회귀분석에는 아직 쓰지 않습니다. 경찰청 시도별 소년범 검거 표는 정보공개청구로 받을 수 있습니다.")
+
+    cvd = tr.committee_vs_delinquency(2024)
+    xs = [c for c in ["학폭 심의 / 학생 1천 명", "자체해결 포함 / 학생 1천 명", "피해응답률(%)", "학폭심의건수"]
+          + [c for c in cvd.columns if "소년" in c] if c in cvd and cvd[c].notna().sum() >= 8]
+    ys = [c for c in [tr.COMMITTEE_RATE, tr.COMMITTEE_Y] if c in cvd]
+    if xs and ys:
+        st.markdown("**교권 침해 심의와 학교폭력·비행 지표 (2024, 17개 시도)**")
+        c1, c2 = st.columns(2)
+        x = c1.selectbox("설명 변수 (x)", xs, key="dq_x")
+        y = c2.selectbox("교권 지표 (y)", ys, key="dq_y")
+        reg, rt = tr.simple_regression(cvd, x, y)
+        d = cvd.dropna(subset=[x, y])
+        fig = px.scatter(d, x=x, y=y, text="시도", title=f"{x}이(가) 높은 시도일수록 교권 침해 심의도 많은가")
+        fig.update_traces(textposition="top center")
+        if reg:
+            xl = d[x].sort_values()
+            fig.add_scatter(x=xl, y=reg["intercept"] + reg["slope"] * xl, mode="lines", name="회귀선",
+                            line=dict(dash="dash"))
+        st.plotly_chart(fig, width="stretch")
+        if reg:
+            st.markdown(f"**단순 회귀분석: {y} = a + b × {x}**")
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("기울기 b", f"{reg['slope']:.3f}", help=f"표준오차 {reg['se']:.3f}")
+            m2.metric("R²", f"{reg['r2']:.2f}")
+            m3.metric("p값", f"{reg['p']:.3f}")
+            m4.metric("순위상관 (스피어만)", f"{reg['spearman']:.2f}", help=f"p={reg['spearman_p']:.3f}")
+            sig = "통계적으로 유의합니다(p<0.05)" if reg["p"] < 0.05 else (
+                "10% 수준에서만 약하게 유의합니다(0.05≤p<0.10)" if reg["p"] < 0.10 else "통계적으로 유의하지 않습니다(p≥0.10)")
+            st.caption(f"{x}이(가) 1 높은 시도는 {y}이(가) 평균 {reg['slope']:.3f} 높고, 시도 간 차이의 "
+                       f"{reg['r2'] * 100:.0f}%를 설명합니다. 이 관계는 {sig}. 한계: n={reg['n']}개 시도·한 시점이라 검정력이 낮고, "
+                       "교보위 값은 2024.3.28~6.30 약 3개월 보도 값입니다. 건수끼리 비교하면 학생·교원 수가 많은 시도가 둘 다 커서 "
+                       "상관이 부풀려지므로, 인구 대비 비율(1천 명당)끼리 비교한 결과를 우선 보세요. 상관이지 인과가 아닙니다.")
+            st.dataframe(rt, hide_index=True, width="stretch")
+        else:
+            st.dataframe(d, hide_index=True, width="stretch")
+        st.info("시도별 교보위 심의 건수가 연도별로 들어오면(정보공개청구 또는 교육부 발표) 같은 패널에서 시도 고정효과 회귀로 "
+                "'같은 시도 안에서 학폭이 늘어난 해에 교권 침해도 늘었는가'를 볼 수 있습니다. 지금은 2024 한 시점만 있습니다.")
+    pn = tr.delinquency_panel()
+    if not pn.empty:
+        with st.expander(f"시도×연도 패널 표 ({len(pn)}행)"):
+            st.dataframe(pn, hide_index=True, width="stretch")

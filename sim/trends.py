@@ -5,6 +5,8 @@
 3) 2024년 시도 비교 (보도 값)
 4) 아동학대 신고 → 검거 → 기소·불기소·보호사건 흐름, 교원 대상 신고와 비교
 5) 경기 교권보호단 출범 효과 (정보공개청구 자료가 있을 때)
+6) 시도교육청 재정과 심의 건수
+7) 학교폭력·청소년 비행과 심의 건수 (시도×연도 패널)
 """
 from __future__ import annotations
 
@@ -17,6 +19,9 @@ from . import calibration as cal
 ROOT = Path(__file__).resolve().parent.parent
 SIDO_TEACHERS = ROOT / "data" / "measured" / "sido_teachers.csv"        # 열: 시도, 연도, 교원수 (KESS)
 GG_CASES = ROOT / "data" / "measured" / "claims" / "gyeonggi_cases.csv"  # 정보공개청구 답변 (사안 1건 1행)
+SV_SIDO = ROOT / "data" / "measured" / "school_violence_sido.csv"       # 학교알리미 공시 학교폭력 심의, 학교별 → 시도 합계
+SV_SURVEY = ROOT / "data" / "measured" / "school_violence_survey_sido.csv"  # 학교폭력 실태조사 시도별 피해응답률
+JUVENILE = ROOT / "data" / "measured" / "juvenile_crime_sido.csv"      # 시도별 소년범죄 (열: 시도, 연도, 지표, 값, 출처)
 
 SIDO_SHORT = {"서울": "서울", "부산": "부산", "대구": "대구", "인천": "인천", "광주": "광주", "대전": "대전",
               "울산": "울산", "세종": "세종", "경기": "경기", "강원": "강원", "충북": "충북", "충남": "충남",
@@ -263,6 +268,119 @@ def fiscal_regression(cv: pd.DataFrame, value: str, y: str = "심의 건수 (202
     rho, p_rho = stats.spearmanr(x, d[y])
     d["예측 심의 건수"] = (r.intercept + r.slope * x).round(1)
     d["잔차 (실제−예측)"] = (d[y] - d["예측 심의 건수"]).round(1)
+    summary = {"n": len(d), "slope": r.slope, "intercept": r.intercept, "r2": r.rvalue ** 2, "p": r.pvalue,
+               "se": r.stderr, "spearman": rho, "spearman_p": p_rho}
+    return summary, d.sort_values("잔차 (실제−예측)", ascending=False, ignore_index=True)
+
+
+# ── 7. 학교폭력·청소년 비행 ──
+COMMITTEE_Y = "교보위 심의 (2024.3.28~6.30)"
+COMMITTEE_RATE = "교보위 심의 / 교원 1천 명"
+
+
+def _read(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+    from collector.measured import read_kr_csv
+    df = read_kr_csv(path)
+    if "시도" in df:
+        df["시도"] = df["시도"].astype(str).str[:2].map(SIDO_SHORT)
+        df = df.dropna(subset=["시도"])
+    return df
+
+
+def school_violence_sido() -> pd.DataFrame:
+    """학교알리미 '학교폭력 심의 결과' 공시를 시도×학년도로 합친 값. 공시연도 Y = Y−1 학년도 실적.
+    학생·교원 수는 수집 시점(2026 공시) 학교 기본정보라 연도마다 같다."""
+    df = _read(SV_SIDO)
+    if df.empty:
+        return df
+    df["학생수 기준"] = "2026 공시"
+    try:   # SCHOOLINFO_KEY로 받은 연도별 학생 수가 있으면 그 해(공시연도 = 학년도) 학생 수로 바꾼다
+        from collector import schoolinfo
+        st_ = schoolinfo.students_by_sido(schoolinfo.saved())
+    except Exception:
+        st_ = pd.DataFrame()
+    if not st_.empty:
+        st_ = st_.rename(columns={"공시연도": "학년도", "학생수": "_학생수"})
+        df = df.merge(st_, on=["시도", "학년도"], how="left")
+        hit = df["_학생수"].notna()
+        df.loc[hit, "학생수"] = df.loc[hit, "_학생수"]
+        df.loc[hit, "학생수 기준"] = "학교알리미 Open API (해당 연도)"
+        df = df.drop(columns="_학생수")
+    df["학폭 심의 / 학생 1천 명"] = (df["학폭심의건수"] / df["학생수"] * 1000).round(2)
+    df["자체해결 포함 / 학생 1천 명"] = ((df["학폭심의건수"] + df["학교장자체해결건수"]) / df["학생수"] * 1000).round(2)
+    return df
+
+
+def victim_rate() -> pd.DataFrame:
+    """교육부·시도교육청 학교폭력 실태조사(1차 전수조사) 시도별 피해응답률(%). 파일이 없으면 빈 표."""
+    df = _read(SV_SURVEY)
+    return df if df.empty else df.dropna(subset=["피해응답률"])
+
+
+def juvenile_crime() -> pd.DataFrame:
+    """시도별 소년범죄 (긴 형식: 시도, 연도, 지표, 값). 파일이 없으면 빈 표."""
+    return _read(JUVENILE)
+
+
+def delinquency_panel() -> pd.DataFrame:
+    """시도×연도 패널: 학폭 심의율, 피해응답률, 소년범죄 지표를 한 표로. 연도는 학년도(=조사·통계 연도)."""
+    sv = school_violence_sido()
+    parts = []
+    if not sv.empty:
+        parts.append(sv.rename(columns={"학년도": "연도"})[["시도", "연도", "학폭심의건수", "학폭 심의 / 학생 1천 명",
+                                                         "자체해결 포함 / 학생 1천 명"]])
+    vr = victim_rate()
+    if not vr.empty:
+        parts.append(vr[["시도", "연도", "피해응답률"]].rename(columns={"피해응답률": "피해응답률(%)"}))
+    jc = juvenile_crime()
+    if not jc.empty:
+        jp = jc.pivot_table(index=["시도", "연도"], columns="지표", values="값", aggfunc="sum").reset_index()
+        jp.columns.name = None
+        if not sv.empty:   # 소년범죄도 학생 1천 명당으로 (학생 수는 2026 공시 기준)
+            stu = sv.drop_duplicates("시도").set_index("시도")["학생수"]
+            for c in [c for c in jp.columns if c not in ("시도", "연도")]:
+                jp[f"{c} / 학생 1천 명"] = (jp[c] / jp["시도"].map(stu) * 1000).round(2)
+        parts.append(jp)
+    if not parts:
+        return pd.DataFrame(columns=["시도", "연도"])
+    out = parts[0]
+    for p in parts[1:]:
+        out = out.merge(p, on=["시도", "연도"], how="outer")
+    out["연도"] = out["연도"].astype(int)
+    return out.sort_values(["시도", "연도"], ignore_index=True)
+
+
+def committee_vs_delinquency(year: int = 2024) -> pd.DataFrame:
+    """2024 시도별 교보위 심의(17개 시도, 3개월)에 같은 해 학폭·비행 지표를 붙인다. 교원 1천 명당 심의도 계산."""
+    s = sido_2024()[["시도", "2024.3.28~6.30"]].rename(columns={"2024.3.28~6.30": COMMITTEE_Y})
+    sv = school_violence_sido()
+    tc = sido_teachers()
+    if not tc.empty and year in set(tc["연도"]):
+        s = s.merge(tc[tc["연도"] == year][["시도", "교원수"]], on="시도", how="left")
+    elif not sv.empty:
+        s = s.merge(sv.drop_duplicates("시도")[["시도", "교원수"]], on="시도", how="left")
+    if "교원수" in s:
+        s[COMMITTEE_RATE] = (s[COMMITTEE_Y] / s["교원수"] * 1000).round(2)
+    p = delinquency_panel()
+    if not p.empty:
+        cur = p[p["연도"] == year].drop(columns="연도")
+        s = s.merge(cur, on="시도", how="left")
+    return s
+
+
+def simple_regression(d: pd.DataFrame, x: str, y: str, x_scale: float = 1.0) -> tuple[dict, pd.DataFrame]:
+    """단순 회귀 y = a + b·(x / x_scale). 요약(기울기·R²·p값·스피어만)과 시도별 예측값·잔차 표."""
+    from scipy import stats
+    d = d.dropna(subset=[x, y]).copy()
+    if len(d) < 3 or d[x].nunique() < 2:
+        return {}, d
+    xs = d[x] / x_scale
+    r = stats.linregress(xs, d[y])
+    rho, p_rho = stats.spearmanr(xs, d[y])
+    d["예측"] = (r.intercept + r.slope * xs).round(2)
+    d["잔차 (실제−예측)"] = (d[y] - d["예측"]).round(2)
     summary = {"n": len(d), "slope": r.slope, "intercept": r.intercept, "r2": r.rvalue ** 2, "p": r.pvalue,
                "se": r.stderr, "spearman": rho, "spearman_p": p_rho}
     return summary, d.sort_values("잔차 (실제−예측)", ascending=False, ignore_index=True)
