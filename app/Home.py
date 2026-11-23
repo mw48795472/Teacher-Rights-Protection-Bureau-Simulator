@@ -29,7 +29,7 @@ CSS = """
 .h-sec .t {font-size: 1.2rem; font-weight: 700;}
 .h-sec .s {font-size: .85rem; opacity: .6; margin-left: auto;}
 .h-grid {display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));}
-.h-grid.sm {grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));}
+.h-grid.sm {grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));}
 .h-card {border: 1px solid rgba(128,128,128,.22); border-radius: 12px; padding: 16px 18px;
          background: rgba(128,128,128,.03); display: flex; flex-direction: column;}
 .h-card .badge {align-self: flex-start; font-size: .75rem; font-weight: 700; padding: 2px 9px;
@@ -187,6 +187,7 @@ html(section("04", "결론: 실효성 조건과 한계", "시뮬레이터에서 
 pages = [("📊", "시뮬레이션", "시뮬레이션", "H1~H5: 구조·조건별 수백 건 비교, 관할 지도, 분석"),
          ("🧭", "사안 추적", "사안_추적", "1호 사안이 위원회 절차(서식 1~15)를 거치는 과정"),
          ("🤖", "에이전트 시뮬레이션", "에이전트_시뮬레이션", "H6: 행동마다 법령·조례로 허용·차단 판정"),
+         ("📈", "실측 분석", "실측_분석", "공공 원자료로 본 침해 추세, 시도 비교, 교권보호단 출범 효과"),
          ("📚", "근거 자료", "근거_자료", "법령·매뉴얼·서식, 데이터 출처와 API 상태")]
 links = "".join(f'<a class="h-card h-link" href="{p}" target="_self"><h4>{i} {t}</h4><p>{d}</p>'
                 f'<div class="go">열기 →</div></a>' for i, t, p, d in pages)
