@@ -362,3 +362,14 @@ def test_schoolinfo_unreachable_stops_early_and_uses_committed_file(monkeypatch,
     assert "접속하지 못함" in notes[0]
     (tmp_path / schoolinfo.SIDO_FILE).write_text("시도,공시연도,학생수\n경기,2024,1000\n", encoding="utf-8")
     assert schoolinfo.students().iloc[0]["학생수"] == 1000
+
+
+def test_kess_students_file_is_used_per_year():
+    import pandas as pd
+    f = pd.read_csv(ROOT / "data" / "measured" / "schoolinfo" / "students_by_sido.csv")
+    assert f.groupby("공시연도")["시도"].nunique().eq(17).all()
+    sv = tr.school_violence_sido().set_index(["시도", "학년도"])
+    want = f.set_index(["시도", "공시연도"]).loc[("경기", 2024), "학생수"]
+    assert sv.loc[("경기", 2024), "학생수"] == want
+    assert sv.loc[("경기", 2022), "학생수"] != sv.loc[("경기", 2025), "학생수"]
+    assert "KESS" in sv.loc[("경기", 2024), "학생수 기준"]

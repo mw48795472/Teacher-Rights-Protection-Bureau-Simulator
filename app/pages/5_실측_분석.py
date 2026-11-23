@@ -204,23 +204,27 @@ with t7:
             st.caption("학생 수는 2026 공시 기준이라 연도별 학생 수 변화는 반영하지 못합니다. Streamlit Secrets에 `SCHOOLINFO_KEY`가 "
                        "있으면 학교알리미에서 연도별 학생 수를 받아 바꿉니다(아래 '연결 상태').")
         else:
-            st.caption("학생 수: 학교알리미 Open API로 받은 해당 연도 학생 수를 씁니다(없는 연도는 2026 공시 기준).")
-    with st.expander("연결 상태 (학교알리미 Open API)"):
-        from collector import schoolinfo as _si
-        _ss = st.cache_data(ttl=3600, show_spinner=False)(_si.check)()
-        st.write(("✅ " if _ss["ok"] else "⚠️ ") + _ss["reason"])
-        if _ss.get("columns"):
-            st.caption("응답 칸: " + ", ".join(map(str, _ss["columns"])))
-        if _si.schoolinfo_key():
-            _st = _si.students(fetch=False)
-            if not _st.empty:
-                st.write(f"✅ 연도별 학생 수 {len(_st)}행 사용 중 (공시연도 {', '.join(map(str, sorted(_st['공시연도'].unique())))})")
-            elif _si._AUTO["note"]:
-                st.write("⚠️ 학생 수 받기: " + _si._AUTO["note"])
-                if "접속하지 못함" in _si._AUTO["note"]:
-                    st.caption("학교알리미는 해외에서 접속을 막는 경우가 많아 Streamlit Cloud 서버에서는 받지 못할 수 있습니다. "
-                               "국내 PC에서 `python -m collector.schoolinfo`를 한 번 돌리고 "
-                               "`data/measured/schoolinfo/students_by_sido.csv`를 커밋하면 앱이 그 파일을 씁니다.")
+            st.caption("학생 수: " + ", ".join(sorted(sv["학생수 기준"].unique())) + ". 해당 연도 초·중·고 학생 수(4.1. 기준)로 나눴습니다.")
+    from collector import schoolinfo as _si
+    _sf = _si.OUT / _si.SIDO_FILE
+    with st.expander("학생 수 출처 (KESS 파일 / 학교알리미 Open API)"):
+        if _sf.exists():
+            st.write(f"✅ 저장소의 시도별 학생 수 파일 사용 중 ({_sf.relative_to(_si.ROOT)}). 학교알리미 API는 부르지 않습니다.")
+        else:
+            _ss = st.cache_data(ttl=3600, show_spinner=False)(_si.check)()
+            st.write(("✅ " if _ss["ok"] else "⚠️ ") + _ss["reason"])
+            if _ss.get("columns"):
+                st.caption("응답 칸: " + ", ".join(map(str, _ss["columns"])))
+            if _si.schoolinfo_key():
+                _st = _si.students(fetch=False)
+                if not _st.empty:
+                    st.write(f"✅ 연도별 학생 수 {len(_st)}행 사용 중 (공시연도 {', '.join(map(str, sorted(_st['공시연도'].unique())))})")
+                elif _si._AUTO["note"]:
+                    st.write("⚠️ 학생 수 받기: " + _si._AUTO["note"])
+                    if "접속하지 못함" in _si._AUTO["note"]:
+                        st.caption("학교알리미는 해외에서 접속을 막는 경우가 많아 Streamlit Cloud 서버에서는 받지 못할 수 있습니다. "
+                                   "국내 PC에서 `python -m collector.schoolinfo`를 한 번 돌리거나 KESS 시도별 학생수를 "
+                                   "`data/measured/schoolinfo/students_by_sido.csv`로 커밋하면 앱이 그 파일을 씁니다.")
         st.caption("학교알리미 Open API에는 학교폭력 심의 결과 항목이 없어, 이 키는 연도별 학생 수(분모)에만 씁니다.")
     vr = tr.victim_rate()
     if not vr.empty:
