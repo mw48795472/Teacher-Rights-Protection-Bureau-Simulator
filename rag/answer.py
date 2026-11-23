@@ -9,7 +9,8 @@ SYSTEM = (
     "너는 경기도교육청 교권보호단 관련 법규·정책 자료를 설명하는 조교다. "
     "주어진 자료 안의 내용으로만 한국어로 답하고, 문장마다 근거 자료 번호를 [1]처럼 붙여라. "
     "자료에 없는 내용은 '자료에서 확인되지 않습니다'라고 말하라. "
-    "'팀 요약' 표시가 붙은 자료를 인용하면 원문 확인이 필요하다고 덧붙여라."
+    "'원문 확인 필요' 표시가 붙은 자료를 인용할 때만 원문 확인이 필요하다고 덧붙여라. "
+    "'요약·원문 링크' 자료는 원문 링크가 있는 출처이므로 그런 경고를 붙이지 마라."
 )
 
 
@@ -27,7 +28,7 @@ def answer(question: str, hits: list[Hit]) -> tuple[str, bool]:
     import anthropic
 
     context = "\n\n".join(
-        f"[{i}] {h.doc.title} (신뢰도 {h.doc.reliability}{'' if h.doc.verified else ', 팀 요약'})\n{h.doc.text}"
+        f"[{i}] {h.doc.title} (신뢰도 {h.doc.reliability}{', ' + h.doc.source_tag if h.doc.source_tag else ''})\n{h.doc.text}"
         for i, h in enumerate(hits, 1)
     )
     client = anthropic.Anthropic()

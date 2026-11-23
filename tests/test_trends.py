@@ -117,3 +117,34 @@ def test_edufin_parse_body_xml_and_html():
     assert "ERROR-290" in edufin._error(err)
     with pytest.raises(edufin.EdufinError, match="\\*\\*\\*"):
         edufin.parse_body("<html>잘못된 키 SECRETKEY 입니다", key="SECRETKEY")
+
+
+def _edufin_client(handler):
+    import httpx
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_edufin_probe_finds_working_year_format(monkeypatch):
+    import httpx
+    from collector import edufin
+    monkeypatch.setenv("EDUFIN_KEY", "k")
+    rows = [{"EDU_NM": f"교육청{i}", "SBJ_NM": "교권보호 지원" if i == 0 else "시설"} for i in range(8)]
+
+    def handler(req):
+        ymq = req.url.params.get("YMQ")
+        if ymq == "2024":          # 연도 4자리일 때만 자료가 온다
+            return httpx.Response(200, json={"opclTotal": [{"head": []}, {"row": rows}]})
+        return httpx.Response(200, json={"opclTotal": [{"head": []}, {"row": []}]})
+    c = _edufin_client(handler)
+    pr = edufin.probe("opclTotal", [2024, 2023], client=c)
+    assert pr["ok"] and pr["params"] == {"YMQ": "2024"} and pr["year"] == 2024
+    assert edufin.check({"services": [{"requestType": "opclTotal"}], "years": [2024]}, client=c)["ok"]
+
+
+def test_edufin_probe_flags_key_problem(monkeypatch):
+    import httpx
+    from collector import edufin
+    monkeypatch.setenv("EDUFIN_KEY", "k")
+    c = _edufin_client(lambda req: httpx.Response(200, json={"RESULT": {"CODE": "ERROR-290", "MESSAGE": "인증키가 유효하지 않습니다."}}))
+    r = edufin.check({"services": [{"requestType": "opclTotal"}], "years": [2024]}, client=c)
+    assert not r["ok"] and "키 문제" in r["reason"]

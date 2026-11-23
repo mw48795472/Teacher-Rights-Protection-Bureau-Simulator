@@ -48,7 +48,8 @@ def _rows(payload) -> list[dict]:
     def walk(x):
         nonlocal best
         if isinstance(x, list):
-            if x and all(isinstance(i, dict) for i in x) and len(x) > len(best):
+            if x and all(isinstance(i, dict) and any(not isinstance(v, (dict, list)) for v in i.values()) for i in x) \
+                    and len(x) > len(best):   # 감싸는 칸({"head": [...]}, {"row": [...]})은 행이 아니다
                 best = x
             for i in x:
                 walk(i)
@@ -109,7 +110,7 @@ def parse_body(text: str, key: str = "") -> dict | list:
     raise EdufinError(f"JSON·XML이 아닌 응답: {head or '(빈 응답)'}")
 
 
-def fetch(service: str, year: int | str, key: str | None = None, page_size: int = 1000, max_pages: int = 50,
+def fetch(service: str, year: int | str | None, key: str | None = None, page_size: int = 100, max_pages: int = 200,
           client: httpx.Client | None = None, **params) -> pd.DataFrame:
     key = key or edufin_key()
     if not key:
@@ -120,7 +121,9 @@ def fetch(service: str, year: int | str, key: str | None = None, page_size: int 
     try:
         for page in range(1, max_pages + 1):
             q = {"requestType": service, "key": key, "Type": "json", "type": "json", "pIndex": page,
-                 "pSize": page_size, "YMQ": str(year), **params}
+                 "pSize": page_size, **params}
+            if year is not None and "YMQ" not in q:
+                q["YMQ"] = str(year)
             try:
                 r = client.get(BASE, params=q)
                 r.raise_for_status()
@@ -141,7 +144,7 @@ def fetch(service: str, year: int | str, key: str | None = None, page_size: int 
         if own:
             client.close()
     df = pd.DataFrame(out)
-    if not df.empty:
+    if not df.empty and year is not None and "회계연도" not in df:
         df.insert(0, "회계연도", int(str(year)[:4]))
     return df
 
@@ -155,21 +158,59 @@ def keyword_rows(df: pd.DataFrame, keywords) -> pd.DataFrame:
     return df[mask]
 
 
+KEY_PROBLEM = ("인증키", "ERROR-290", "ERROR-300", "INFO-300", "INFO-100", "KEY")
+
+
+def _variants(years) -> list[tuple[str, dict, int | None]]:
+    """(설명, 추가 파라미터, 회계연도) — 회계연도 형식이 공개 안내에 없어 몇 가지를 차례로 시도한다."""
+    ys = sorted({int(y) for y in years}, reverse=True) or [2024]
+    out = [("YMQ 없이", {}, None)]
+    for y in ys[:4]:
+        out.append((f"YMQ={y}", {"YMQ": str(y)}, y))
+    out.append((f"YMQ={ys[0]}12", {"YMQ": f"{ys[0]}12"}, ys[0]))
+    out.append((f"YMQ={ys[0]}4 (4분기)", {"YMQ": f"{ys[0]}4"}, ys[0]))
+    return out
+
+
+def probe(service: str = "opclTotal", years=(2025, 2024, 2023, 2022), client=None) -> dict:
+    """실제 행이 오는 요청 조건을 찾는다. {ok, mode, params, year, df, tried:[(설명, 결과)], key_problem}"""
+    tried, key_problem = [], False
+    for label, extra, y in _variants(years):
+        try:
+            df = fetch(service, None, page_size=20, max_pages=1, client=client, **extra)
+        except EdufinError as e:
+            msg = str(e)
+            tried.append((label, msg[:120]))
+            key_problem |= any(k in msg for k in KEY_PROBLEM)
+            continue
+        if not df.empty:
+            if y is not None and "회계연도" not in df:
+                df.insert(0, "회계연도", y)
+            return {"ok": True, "mode": label, "params": extra, "year": y, "df": df, "tried": tried,
+                    "key_problem": False}
+        head = LAST_HEAD
+        tried.append((label, f"0행 · {head[:120] or '(빈 응답)'}"))
+        key_problem |= any(k in head for k in KEY_PROBLEM)
+    return {"ok": False, "mode": None, "params": {}, "year": None, "df": pd.DataFrame(), "tried": tried,
+            "key_problem": key_problem}
+
+
 def check(cfg: dict | None = None, client=None) -> dict:
     cfg = cfg or config()
     svc = (cfg.get("services") or [{}])[0]
     if not edufin_key():
         return {"ok": False, "reason": "EDUFIN_KEY 없음"}
-    try:
-        df = fetch(svc.get("requestType", "opclTotal"), cfg.get("years", [2023])[-1], page_size=20, max_pages=1,
-                   client=client)
-    except EdufinError as e:
-        return {"ok": False, "reason": str(e)}
-    if df.empty:
-        return {"ok": False, "reason": f"응답에 행이 없음 · 서버 응답 앞부분: {LAST_HEAD or '(빈 응답)'}"}
-    if len(df) <= 5:
-        return {"ok": False, "reason": f"{len(df)}건만 받음 (샘플 키 한도일 수 있음)", "columns": list(df.columns)}
-    return {"ok": True, "reason": "정상", "rows": len(df), "columns": list(df.columns)}
+    pr = probe(svc.get("requestType", "opclTotal"), cfg.get("years") or [2024], client=client)
+    if pr["ok"]:
+        df = pr["df"]
+        if len(df) <= 5:
+            return {"ok": False, "reason": f"{pr['mode']}로 {len(df)}건만 받음 (샘플 키 한도: 키가 아직 승인되지 않았을 수 있음)",
+                    "columns": list(df.columns)}
+        return {"ok": True, "reason": f"정상 ({pr['mode']})", "rows": len(df), "columns": list(df.columns)}
+    tried = " / ".join(f"{a}: {b}" for a, b in pr["tried"])
+    if pr["key_problem"]:
+        return {"ok": False, "reason": f"키 문제로 보임 (미승인·오타·만료). 시도한 조건: {tried}"}
+    return {"ok": False, "reason": f"어떤 조건으로도 행이 오지 않음. 시도한 조건: {tried}"}
 
 
 def saved(name: str) -> pd.DataFrame:
@@ -177,23 +218,39 @@ def saved(name: str) -> pd.DataFrame:
     return pd.read_csv(p) if p.exists() else pd.DataFrame()
 
 
-def collect(cfg: dict | None = None, log=print) -> dict[str, pd.DataFrame]:
+def collect(cfg: dict | None = None, log=print, client=None) -> dict[str, pd.DataFrame]:
+    """서비스마다 먼저 probe()로 통하는 조건을 찾고, 회계연도가 필요한 형식이면 연도별로 받는다."""
     cfg = cfg or config()
     OUT.mkdir(parents=True, exist_ok=True)
     got = {}
+    years = cfg.get("years") or []
     for svc in cfg.get("services") or []:
         name = svc.get("name") or svc["requestType"]
+        pr = probe(svc["requestType"], years or [2024], client=client)
+        if not pr["ok"]:
+            log(f"[지방교육재정알리미] {name}: 행 없음 ({'; '.join(f'{a}: {b}' for a, b in pr['tried'])})")
+            got[name] = pd.DataFrame()
+            continue
+        extra = {**(svc.get("params") or {})}
         frames = []
-        for y in cfg.get("years") or []:
-            try:
-                frames.append(fetch(svc["requestType"], y, **(svc.get("params") or {})))
-            except EdufinError as e:
-                log(f"[지방교육재정알리미] {name} {y}: {e}")
-        df = pd.concat([f for f in frames if not f.empty], ignore_index=True) if any(not f.empty for f in frames) \
-            else pd.DataFrame()
+        if pr["year"] is None:            # 회계연도 없이 전체가 오는 서비스
+            frames.append(fetch(svc["requestType"], None, client=client, **extra))
+        else:
+            fmt = pr["params"]["YMQ"].replace(str(pr["year"]), "{y}")
+            for y in years or [pr["year"]]:
+                try:
+                    df = fetch(svc["requestType"], None, client=client, YMQ=fmt.format(y=y), **extra)
+                except EdufinError as e:
+                    log(f"[지방교육재정알리미] {name} {y}: {e}")
+                    continue
+                if not df.empty and "회계연도" not in df:
+                    df.insert(0, "회계연도", int(y))
+                frames.append(df)
+        frames = [f for f in frames if not f.empty]
+        df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         if not df.empty:
             df.to_csv(OUT / f"{name}.csv", index=False, encoding="utf-8-sig")
-            log(f"[지방교육재정알리미] {name}: {len(df)}행 → {OUT / (name + '.csv')}")
+            log(f"[지방교육재정알리미] {name}: {len(df)}행 ({pr['mode']}) → {OUT / (name + '.csv')}")
         got[name] = df
     return got
 

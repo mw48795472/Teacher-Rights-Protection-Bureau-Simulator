@@ -126,5 +126,7 @@ with t6:
         st.info("공시 자료는 받았지만 교권 관련 사업명이 보이지 않습니다. 지금 받는 서비스(공시 총괄)에는 사업별 세출이 "
                 "없을 수 있어, 사업별 세출 서비스 이름을 `config/edufin.yaml`에 추가해야 합니다. 받은 칸은 아래와 같습니다.")
         st.write(", ".join(map(str, bd.columns)))
+        st.markdown(f"**받은 공시 자료 ({len(bd):,}행, 앞 200행)**")
+        st.dataframe(bd.head(200), hide_index=True, use_container_width=True)
     else:
         st.warning(f"지방교육재정알리미에서 자료를 받지 못했습니다 ({status}). 위 '연결 상태'에 서버 응답 앞부분이 나옵니다.")

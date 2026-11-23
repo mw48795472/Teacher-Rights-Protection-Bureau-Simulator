@@ -79,7 +79,7 @@ class ComplianceAgent:
         kind = "공적 주체" if (role is None or role.is_official) else "사인(私人)"
         evidence = "\n\n".join(
             f"[{h.doc.id}] {h.doc.title} (신뢰도 {h.doc.reliability}"
-            f"{'' if h.doc.verified else ', 팀 요약·원문 확인 필요'})\n{h.doc.text}"
+            f"{', ' + h.doc.source_tag if h.doc.source_tag else ''})\n{h.doc.text}"
             for h in hits
         )
         user = (
