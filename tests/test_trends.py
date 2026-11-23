@@ -171,3 +171,11 @@ def test_edufin_frame_and_committee_join():
     fis = tr.edufin_by_sido(fd, "AMT")
     cv = tr.committee_vs_fiscal(fis, "AMT")
     assert len(cv) == 17 and (cv["재정 기준 연도"] == 2024).all() and cv["심의 건수 / 재정 1조"].notna().all()
+
+
+def test_fiscal_regression():
+    cv = pd.DataFrame({"시도": list(tr.SIDO_SHORT), "AMT": [(i + 1) * 1e12 for i in range(17)],
+                       "심의 건수 (2024.3.28~6.30)": [10 + 5 * (i + 1) + (i % 3) for i in range(17)]})
+    reg, rt = tr.fiscal_regression(cv, "AMT")
+    assert reg["n"] == 17 and 4.5 < reg["slope"] < 5.5 and reg["r2"] > 0.9 and reg["p"] < 0.001
+    assert "잔차 (실제−예측)" in rt and len(rt) == 17
