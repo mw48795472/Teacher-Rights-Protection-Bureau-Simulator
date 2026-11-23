@@ -14,9 +14,9 @@ st.caption("저장소에 있는 공공 원자료만으로 계산합니다. 가�
            "자료가 아직 없는 분석은 자리만 두고, 파일이 들어오면 자동으로 채워집니다.")
 data_label("real", "이 화면의 모든 값은 공공 원자료 또는 보도된 공식 집계입니다. 보도 값은 신뢰도 C로 따로 표시합니다.")
 
-t1, t2, t3, t4, t5, t6, t7 = st.tabs(["① 추세·교권5법 전후", "② 교원 1천 명당", "③ 시도 비교 (2024)",
-                                      "④ 아동학대 신고 흐름", "⑤ 교권보호단 출범 효과", "⑥ 시도교육청 재정",
-                                      "⑦ 학교폭력·청소년 비행"])
+t1, t2, t4, t5, t6, t7 = st.tabs(["① 추세·교권5법 전후", "② 시도 비교·교원 1천 명당 (2024)",
+                                  "③ 아동학대 신고 흐름", "④ 교권보호단 출범 효과", "⑤ 시도교육청 재정",
+                                  "⑥ 학교폭력·청소년 비행"])
 
 with t1:
     tot = tr.committee_totals()
@@ -34,33 +34,18 @@ with t1:
             "새 유형으로 잡힌 사안입니다. 월별 자료는 교육부 정보공개청구로 받을 수 있습니다.")
 
 with t2:
-    tc = tr.sido_teachers()
-    with st.expander("연결 상태 (KOSIS)"):
-        from collector import kosis as _kosis
-        _ks = st.cache_data(ttl=3600, show_spinner=False)(_kosis.status)() if tc.empty else {"ok": True, "reason": f"교원 수 {len(tc)}행 사용 중"}
-        st.write(("✅ " if _ks["ok"] else "⚠️ ") + _ks["reason"] + (f" · {_ks['table']}" if _ks.get("table") else ""))
-    if tc.empty:
-        st.warning("시도별 교원 수 자료가 아직 없습니다. KESS(kess.kedi.re.kr)에서 시도별 교원 수를 받아 "
-                   "`data/measured/sido_teachers.csv`(열: 시도, 연도, 교원수)로 넣거나, "
-                   "Streamlit Secrets에 `KOSIS_KEY`를 넣고 `config/kosis.yaml`에 통계표 ID를 적으면 앱이 직접 받아 채웁니다.")
-    else:
-        s = tr.sido_2024()
-        col = "1천 명당 (3개월)"
-        st.plotly_chart(px.bar(s.sort_values(col, ascending=False), x="시도", y=col,
-                               title="교원 1천 명당 지역교보위 심의 건수 (2024.3.28~6.30)"), width="stretch")
-        st.dataframe(s, hide_index=True, width="stretch")
-        _lv = [c for c in ("유치원", "초등학교", "중학교", "고등학교", "특수학교") if c in tc.columns]
-        _src = str(tc["출처"].dropna().iloc[0]) if "출처" in tc and tc["출처"].notna().any() else ""
-        st.caption("출처: 심의 건수는 의원실 발표 보도, 교원 수는 "
-                   + (f"{'+'.join(_lv)} 교원 수 합계 ({_src})." if _lv and _src else
-                      f"KOSIS {'+'.join(_lv)} 교원 수 합계." if _lv else "KESS·KOSIS.")
-                   + " 교원 수는 정규·기간제 교원 합(강사 제외).")
-
-with t3:
     s = tr.sido_2024()
+    tc = tr.sido_teachers()
     st.plotly_chart(px.bar(s, x="시도", y="2024.3.28~6.30", text="2024.3.28~6.30",
                            title="시도별 지역교권보호위원회 심의 건수 (2024.3.28~6.30, 17개 시도)"),
                     width="stretch")
+    col = "1천 명당 (3개월)"
+    if col in s:
+        st.plotly_chart(px.bar(s.sort_values(col, ascending=False), x="시도", y=col, text=col,
+                               title="교원 1천 명당 심의 건수 (2024.3.28~6.30): 시도 규모 차이를 뺀 값"),
+                        width="stretch")
+    else:
+        st.warning("시도별 교원 수 자료가 아직 없어 교원 1천 명당 값은 계산하지 못했습니다. 아래 연결 상태를 확인해 주세요.")
     c1, c2 = st.columns(2)
     with c1:
         full = s.dropna(subset=["2024년"])
@@ -72,9 +57,24 @@ with t3:
                                        var_name="구분", value_name="비율(%)"),
                                x="침해 주체", y="비율(%)", color="구분", barmode="group",
                                title="침해 주체: 인천 대 전국 (2024)"), width="stretch")
+    st.markdown("**시도별 표** (건수와 교원 1천 명당 값)")
+    st.dataframe(s, hide_index=True, width="stretch")
+    _lv = [c for c in ("유치원", "초등학교", "중학교", "고등학교", "특수학교") if c in tc.columns]
+    _src = str(tc["출처"].dropna().iloc[0]) if "출처" in tc and tc["출처"].notna().any() else ""
+    _tsrc = ("" if tc.empty else "교원 수는 "
+             + (f"{'+'.join(_lv)} 교원 수 합계 ({_src})" if _lv and _src else
+                f"KOSIS {'+'.join(_lv)} 교원 수 합계" if _lv else "KESS·KOSIS")
+             + "이며 정규·기간제 교원 합(강사 제외)입니다. ")
     st.caption("출처: 2024.3.28~6.30은 교육부 제출 자료(정성국 의원실·한국교총 발표), 2024년 전체와 인천 주체는 "
-               "17개 시·도교육청 제출 자료(백승아 의원실 발표)를 보도한 기사. 원자료가 공개되지 않아 신뢰도 C입니다. "
-               "건수만으로는 시도 규모 차이를 반영하지 못하므로 ② 교원 1천 명당 값과 함께 보세요.")
+               "17개 시·도교육청 제출 자료(백승아 의원실 발표)를 보도한 기사. 원자료가 공개되지 않아 신뢰도 C입니다. " + _tsrc
+               + "건수만으로는 시도 규모 차이를 반영하지 못하므로 교원 1천 명당 값과 함께 보세요.")
+    with st.expander("연결 상태 (KOSIS 교원 수)"):
+        from collector import kosis as _kosis
+        _ks = st.cache_data(ttl=3600, show_spinner=False)(_kosis.status)() if tc.empty else {"ok": True, "reason": f"교원 수 {len(tc)}행 사용 중"}
+        st.write(("✅ " if _ks["ok"] else "⚠️ ") + _ks["reason"] + (f" · {_ks['table']}" if _ks.get("table") else ""))
+        if tc.empty:
+            st.caption("KESS(kess.kedi.re.kr)에서 시도별 교원 수를 받아 `data/measured/sido_teachers.csv`(열: 시도, 연도, 교원수)로 "
+                       "넣거나, Streamlit Secrets에 `KOSIS_KEY`를 넣으면 `config/kosis.yaml`의 표로 앱이 직접 받아 채웁니다.")
 
 with t4:
     fl = tr.abuse_flow()

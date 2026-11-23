@@ -58,7 +58,7 @@ def test_analysis_page_renders(monkeypatch):
     sys.modules.pop("common", None)
     at = AppTest.from_file(str(ROOT / "app" / "pages" / "5_실측_분석.py"), default_timeout=60).run()
     assert not at.exception
-    assert len(at.tabs) == 7
+    assert len(at.tabs) == 6
 
 
 def test_kosis_teachers_table_and_no_key(monkeypatch):
