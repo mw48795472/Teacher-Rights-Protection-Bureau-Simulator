@@ -130,3 +130,14 @@ def test_evidence_example_question_fills_search(monkeypatch):
     btn.click().run()
     assert not at.exception
     assert at.text_input(key="evidence_q").value == btn.label
+
+
+def test_evidence_page_recovers_from_stale_calibration_module(monkeypatch):
+    """배포 앱에 예전 sim.calibration 이 남아 있어도(함수 없음) 근거 자료 화면이 열린다."""
+    import sys
+    from streamlit.testing.v1 import AppTest
+    monkeypatch.delattr(cal, "data_sources_table")
+    monkeypatch.syspath_prepend(str(ROOT / "app"))
+    sys.modules.pop("common", None)
+    at = AppTest.from_file(str(ROOT / "app" / "pages" / "3_근거_자료.py"), default_timeout=60).run()
+    assert not at.exception
