@@ -36,6 +36,10 @@ class Case:
     office: str = ""              # 관할 교육지원청 (지도 모드)
     committee_wait: float = 0.0   # 위원회 심의까지 기다린 시간(h)
     committee: bool = False       # 지역교권보호위원회 심의를 거쳤는가
+    actor: str = ""               # 침해 주체 (실측 모드: 학생·보호자)
+    level: str = ""               # 학교급 (실측 모드)
+    committee_route: bool | None = None  # 위원회 회부 여부를 정해 둔 사안 (실측 모드). None이면 규칙으로 정함
+    recognized: bool | None = None       # 침해 인정 여부 (실측 모드, 처리에는 영향 없음)
     # 결과 기록
     first_response: float | None = None
     closed: float | None = None

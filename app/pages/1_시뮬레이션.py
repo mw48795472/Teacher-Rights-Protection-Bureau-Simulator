@@ -9,6 +9,7 @@ import fresh  # noqa: E402  새 배포 뒤 낡은 모듈을 먼저 다시 읽는
 fresh.ensure()
 from common import chart_style, data_label, freeze, llm_badge, mark_virtual, retriever, schools_enriched, simulate, structures
 from geo.gyeonggi import OFFICES, hierarchy
+from sim import empirical as EMP
 from sim import insights
 from sim import typeffects as TE
 from sim.explain import explain
@@ -37,8 +38,16 @@ with st.sidebar:
     st.header("실험 설정")
     picked = st.multiselect("비교할 구조", list(S), default=list(S), format_func=names.get)
     days = st.slider("기간 (근무일)", 20, 120, 60, 5)
-    rate = st.slider("하루 평균 사안 수", 1.0, 8.0, 3.0, 0.5,
-                     help="실측: 8.24 실무 투입 후 10.8까지 140건 이상 ≈ 하루 3건 [아시아뉴스통신]")
+    source = st.radio("사안 생성", ["assumed", "measured"], horizontal=True, key="case_source",
+                      format_func={"assumed": "가정 (학부모 민원 중심)", "measured": "실측 (교보위 통계)"}.get,
+                      help="가정: 팀이 정한 사안 유형 5개. 실측: 2023 교보위 침해 유형·학교급, 2024 침해 주체 비율, "
+                           "교원 대상 아동학대 신고 건수에서 사안을 뽑습니다. 학생 침해가 약 89%입니다.")
+    if source == "measured":
+        rate = st.slider("하루 평균 사안 수", 1.0, 8.0, round(EMP.default_rate() * 2) / 2, 0.5, key="rate_measured",
+                         help="기본값: 경기 2024년 위원회 심의 1,054건 ÷ 250근무일을 위원회로 가지 않는 사안 비중만큼 키운 값")
+    else:
+        rate = st.slider("하루 평균 사안 수", 1.0, 8.0, 3.0, 0.5,
+                         help="실측: 8.24 실무 투입 후 10.8까지 140건 이상 ≈ 하루 3건 [아시아뉴스통신]")
     seed = st.number_input("난수 시드", 0, 9999, 7)
     st.subheader("① 환경 압력")
     surge = st.checkbox("언론 보도 등으로 사안 급증")
@@ -59,12 +68,16 @@ with st.sidebar:
 if not picked:
     st.info("비교할 구조를 하나 이상 고르세요.")
     st.stop()
+if source == "measured":
+    st.info("**📏 실측 모드**: 사안의 유형·침해 주체·학교급·위원회 회부를 교보위 실측 통계에서 뽑습니다. 유형별 필요한 "
+            "지원과 심각도, 처리시간·인력은 여전히 가정값이라 결과 수치는 가상 데이터입니다. 맨 아래 '실측 재현 점검'에서 "
+            "실측 합계와 얼마나 맞는지 확인하세요.")
 
 frames = []
 with st.spinner("시뮬레이션 실행 중..."):
     for k in picked:
         o = freeze(over) if (use_over and S[k]["kind"] == "integrated") else ()
-        df, _ = simulate(k, days, rate, int(seed), surge_day, surge_mult, o, capacity=cap)
+        df, _ = simulate(k, days, rate, int(seed), surge_day, surge_mult, o, capacity=cap, case_source=source)
         frames.append(df)
 df = pd.concat(frames, ignore_index=True)
 short = {k: s.get("short", s["name"]) for k, s in S.items()}
@@ -290,6 +303,19 @@ if surge:
     st.plotly_chart(mark_virtual(fig), width="stretch")
     st.caption("급증 구간에 접수된 사안일수록 오래 걸리면 구조가 환경 변화를 흡수하지 못한다는 뜻입니다.")
     analysis(insights.surge(df, surge_day), "환경 압력 분석")
+
+if source == "measured":
+    st.subheader("실측 재현 점검: 시뮬레이션이 실측 합계를 재현하는가")
+    st.caption("입력 확인 = 실측 분포에서 뽑은 값이 표본에서도 맞는지. 보정 기준 = 기본값을 맞춘 기준이라 맞아야 정상. "
+               "독립 비교 = 뽑거나 맞추지 않은 실측 값과의 비교로, 어긋나면 그만큼 모형의 가정이 현실과 다르다는 뜻입니다.")
+    rep = EMP.reproduction(df[df["structure"] == picked[0]], rate)
+    if not rep.empty:
+        st.dataframe(rep.round(1), hide_index=True, width="stretch")
+        with st.expander("실측 모드에서 아직 가정인 것: 유형별 필요한 지원·심각도 대응표"):
+            st.dataframe(pd.DataFrame([{"유형": t, "필요한 지원": " · ".join(n), "심각도 (경미/보통/중대)":
+                                        " / ".join(f"{w:.0%}" for w in sw)} for t, (n, sw) in EMP.TYPE_PROFILE.items()]),
+                         hide_index=True, width="stretch")
+            st.caption("보호자가 침해 주체면 갈등조정이 붙습니다. 유형과 침해 주체는 독립이라고 가정합니다 (교차표 미공개).")
 
 st.subheader("결과 설명 (Claude)")
 data_label("sim", "Claude가 풀어 쓰는 숫자도 위 가상 데이터입니다. 인용하는 근거 자료만 실제 문서입니다.")
