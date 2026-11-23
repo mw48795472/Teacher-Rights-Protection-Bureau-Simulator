@@ -102,7 +102,9 @@ with tab_sim:
     pick = d1.selectbox("시나리오 사안", range(len(sc)), format_func=lambda i: sc[i]["name"])
     if not schools.empty:
         opts = schools.sort_values(["office", "name"])
+        bucheon = [i for i in opts.index if opts.at[i, "office"] == "부천"]  # 1호 사안은 부천
         si = d2.selectbox("사안이 생긴 학교", opts.index,
+                          index=list(opts.index).index(bucheon[0]) if bucheon else 0,
                           format_func=lambda i: f"{opts.at[i, 'name']} ({opts.at[i, 'office']})")
         where_school, where_office = opts.at[si, "name"], opts.at[si, "office"]
     else:

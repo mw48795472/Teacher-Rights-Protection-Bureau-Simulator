@@ -50,7 +50,8 @@ streamlit run app/Home.py
 | 전국초중등학교위치표준데이터 (CSV) | [공공데이터포털](https://www.data.go.kr/tcs/dss/selectDataSetList.do?keyword=전국초중등학교위치표준데이터) | 필요 없음 |
 | 학교 기본정보 (선택, 아직 미연동) | [NEIS 교육정보 개방포털](https://open.neis.go.kr) | `NEIS_KEY` |
 
-CSV는 지도 페이지에서 바로 올리거나 `data/schools/gyeonggi_schools.csv`로 넣어 두면 됩니다 (UTF-8, CP949 모두 읽음).
+저장소에는 경기도분 2,576곳(초 1,380 · 중 692 · 고 504, 데이터 기준일 2026-10-01, 제공 한국교육시설안전원)이
+`data/schools/gyeonggi_schools.csv`로 들어 있습니다. 새 CSV는 지도 페이지에서 바로 올리거나 `data/schools/gyeonggi_schools.csv`로 넣어 두면 됩니다 (UTF-8, CP949 모두 읽음).
 없으면 25개 교육지원청만으로 동작하고, 사안은 교육지원청마다 같은 비중으로 생깁니다.
 
 ## 구성
