@@ -160,40 +160,27 @@ cards = "".join(
 html(section("03", "실험 조건: 비교하는 네 가지 구조", "같은 사안 흐름을 네 구조에 똑같이 넣음") +
      f'<div class="h-grid">{cards}</div>')
 
-# ── 04 핵심 결과 ──
-if base:
-    a, b = base["A_distributed"], base["B_gyeonggi"]
-    stats = []
-    for label, col, unit in [("종결까지", "closure_days", "근무일"), ("첫 응답까지", "first_response_h", "시간"),
-                             ("교사가 찾아간 기관", "contacts", "곳"), ("같은 내용 반복 진술", "repeats", "번")]:
-        va, vb = a[col].mean(), b[col].mean()
-        d = (vb - va) / va * 100 if va else 0
-        stats.append(f'<div class="h-card h-stat"><div class="label">{label}</div>'
-                     f'<div class="val">{vb:.1f}{unit}</div><div class="from">분산 구조 {va:.1f}{unit}</div>'
-                     f'<span class="chg{" up" if d > 0 else ""}">{d:+.0f}%</span></div>')
-    html(section("04", "핵심 결과", "분산 구조 → 교권보호단") + f'<div class="h-grid sm">{"".join(stats)}</div>')
-
-# ── 05 결론: 실효성 조건과 한계 ──
+# ── 04 결론: 실효성 조건과 한계 ──
 conds = "".join(
     f'<div class="h-card h-cond"><div class="num">{n}</div><div><h4>{t}</h4><p>{d}</p></div></div>'
     for n, t, d in [("1", "역할 구분", "기존 센터와의 연계절차 (조례 제17조) · H4"),
                     ("2", "안정적 전담 인력", "상근 수와 비상근 응답성 · H5"),
                     ("3", "제도화", "업무매뉴얼 (조례 제25조)과 성과평가 · H4")])
 limits = "".join(f"<li>{x}</li>" for x in T["limits"])
-html(section("05", "결론: 실효성 조건과 한계", "시뮬레이터에서 조건을 켜고 끌 수 있음") +
+html(section("04", "결론: 실효성 조건과 한계", "시뮬레이터에서 조건을 켜고 끌 수 있음") +
      f'<div class="h-grid">{conds}</div>'
      f'<div class="h-card" style="margin-top:12px"><h4>한계</h4><ul class="h-limits">{limits}</ul></div>')
 
-# ── 06 둘러보기 ──
+# ── 05 둘러보기 ──
 pages = [("📊", "시뮬레이션", "시뮬레이션", "H1~H5: 구조·조건별 수백 건 비교, 관할 지도, 분석"),
          ("🧭", "사안 추적", "사안_추적", "1호 사안이 위원회 절차(서식 1~15)를 거치는 과정"),
          ("🤖", "에이전트 시뮬레이션", "에이전트_시뮬레이션", "H6: 행동마다 법령·조례로 허용·차단 판정"),
          ("📚", "근거 자료", "근거_자료", "법령·매뉴얼·서식, 데이터 출처와 API 상태")]
 links = "".join(f'<a class="h-card h-link" href="{p}" target="_self"><h4>{i} {t}</h4><p>{d}</p>'
                 f'<div class="go">열기 →</div></a>' for i, t, p, d in pages)
-html(section("06", "둘러보기") + f'<div class="h-grid sm">{links}</div>')
+html(section("05", "둘러보기") + f'<div class="h-grid sm">{links}</div>')
 
-html(section("07", "자세히"))
+html(section("06", "자세히"))
 tab_def, tab_cmp, tab_terms = st.tabs(["구조별 정의", "설정값 비교", "용어 정리"])
 with tab_def:
     for k, s in S.items():
