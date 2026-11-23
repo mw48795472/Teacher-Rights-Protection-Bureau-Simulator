@@ -86,3 +86,47 @@ else:
     st.markdown(f"- **학교 기본정보**: NEIS 미연결 ({ns['reason']}).")
 st.markdown("- **교육지원청 위치**: 25개 교육지원청을 시청 부근 대략 좌표로 표시 (청사 주소 아님).\n"
             "- **법령·조례**: 국가법령정보센터 Open API (`LAW_OC`가 있을 때 원문 수집, 없으면 팀 요약).")
+
+# ── 전체 데이터 출처와 API 키 상태 ──
+import os  # noqa: E402
+
+from collector import assembly, gg_data  # noqa: E402
+from collector.pipeline import load_sources  # noqa: E402
+from sim.calibration import data_sources_table  # noqa: E402
+
+with st.expander("전체 데이터 출처 표"):
+    src = data_sources_table()
+    if not src.empty:
+        src["링크"] = src["링크"].where(src["링크"].str.startswith("http"), None)
+        st.dataframe(src, hide_index=True, width="stretch",
+                     column_config={"링크": st.column_config.LinkColumn("링크", display_text="열기")})
+        st.caption("목록은 `config/data_sources.yaml`에 있습니다.")
+
+
+@st.cache_data(ttl=3600, show_spinner="API 키 확인 중…")
+def _key_status() -> tuple[list[dict], list[dict]]:
+    gg, asm = gg_data.check_key(), assembly.check_key()
+    bills = [d.to_dict() for d in assembly.cached_bills(load_sources().get("bills"))] if asm["ok"] else []
+
+    def row(name, key, ok, reason):
+        return {"서비스": name, "키": key, "상태": "정상" if ok else "미연결", "비고": reason}
+    rows = [row("국가법령정보센터", "LAW_OC", bool(os.environ.get("LAW_OC")), "설정됨" if os.environ.get("LAW_OC") else "없음 (팀 요약 사용)"),
+            row("NEIS 교육정보 개방포털", "NEIS_KEY", ns["ok"], "대조 완료" if ns["ok"] else ns["reason"]),
+            row("경기데이터드림", "GG_DATA_KEY", gg["ok"], gg["reason"]),
+            row("열린국회정보", "ASSEMBLY_KEY", asm["ok"], f"법률안 {len(bills)}건" if asm["ok"] else asm["reason"]),
+            row("Claude API", "ANTHROPIC_API_KEY", bool(os.environ.get("ANTHROPIC_API_KEY")),
+                "설정됨" if os.environ.get("ANTHROPIC_API_KEY") else "없음 (규칙 기반 요약)")]
+    return rows, bills
+
+
+with st.expander("API 키 연결 상태"):
+    keys, bills = _key_status()
+    st.dataframe(pd.DataFrame(keys), hide_index=True, width="stretch")
+    st.caption("키는 `.env` 또는 Streamlit Secrets에 넣습니다. 키 값은 화면에 나오지 않습니다.")
+    if bills:
+        st.markdown("**근거 자료에 넣은 국회 법률안**")
+        st.dataframe(pd.DataFrame([{"제안일": b["meta"].get("propose_dt"), "법률안": b["title"].split(" [")[0],
+                                    "대표발의": b["meta"].get("proposer"), "단계": b["meta"].get("stage"),
+                                    "링크": b["url"]} for b in bills]),
+                     hide_index=True, width="stretch",
+                     column_config={"링크": st.column_config.LinkColumn("링크", display_text="의안정보")})
