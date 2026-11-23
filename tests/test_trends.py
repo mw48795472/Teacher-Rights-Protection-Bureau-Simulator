@@ -373,3 +373,27 @@ def test_kess_students_file_is_used_per_year():
     assert sv.loc[("경기", 2024), "학생수"] == want
     assert sv.loc[("경기", 2022), "학생수"] != sv.loc[("경기", 2025), "학생수"]
     assert "KESS" in sv.loc[("경기", 2024), "학생수 기준"]
+
+
+def test_multiple_regression_vif():
+    import numpy as np
+    rng = np.random.default_rng(0)
+    a = rng.normal(size=40)
+    b = a * 0.95 + rng.normal(scale=0.1, size=40)      # a와 거의 같은 변수 → VIF 큼
+    c = rng.normal(size=40)
+    y = 1 + 2 * a + 0.5 * c + rng.normal(scale=0.5, size=40)
+    d = pd.DataFrame({"a": a, "b": b, "c": c, "y": y})
+    s, t = tr.multiple_regression(d, ["a", "c"], "y")
+    t = t.set_index("변수")
+    assert abs(t.loc["a", "계수"] - 2) < 0.4 and t.loc["a", "VIF"] < 2
+    # 단순 회귀와 같은 결과 (변수 하나)
+    s1, t1 = tr.multiple_regression(d, ["a"], "y")
+    r, _ = tr.simple_regression(d, "a", "y")
+    assert abs(s1["r2"] - r["r2"]) < 1e-9 and t1.set_index("변수").loc["a", "VIF"] == 1
+    s2, t2 = tr.multiple_regression(d, ["a", "b", "c"], "y")
+    assert s2["max_vif"] > 10
+    # 2024 시도 자료로도 돈다
+    cvd = tr.committee_vs_delinquency(2024)
+    assert "교원 1명당 학생 수" in cvd
+    s3, t3 = tr.multiple_regression(cvd, ["학폭 심의 / 학생 1천 명", "피해응답률(%)", "교원 1명당 학생 수"], tr.COMMITTEE_RATE)
+    assert s3["n"] == 16 and (t3["VIF"].dropna() >= 1).all()

@@ -373,6 +373,16 @@ def committee_vs_delinquency(year: int = 2024) -> pd.DataFrame:
     if not p.empty:
         cur = p[p["연도"] == year].drop(columns="연도")
         s = s.merge(cur, on="시도", how="left")
+    if not sv.empty and "교원수" in s:   # 구조 통제변수: 교원 1명당 학생 수 (학급 규모·교원 부담)
+        stu = sv[sv["학년도"] == year][["시도", "학생수"]] if (sv["학년도"] == year).any() else sv.drop_duplicates("시도")[["시도", "학생수"]]
+        s = s.merge(stu, on="시도", how="left")
+        s["교원 1명당 학생 수"] = (s["학생수"] / s["교원수"]).round(2)
+    try:
+        fs = fiscal_per_student(year)
+    except Exception:  # 재정 자료는 선택
+        fs = pd.DataFrame()
+    if not fs.empty:
+        s = s.merge(fs, on="시도", how="left")
     return s
 
 
@@ -390,3 +400,78 @@ def simple_regression(d: pd.DataFrame, x: str, y: str, x_scale: float = 1.0) -> 
     summary = {"n": len(d), "slope": r.slope, "intercept": r.intercept, "r2": r.rvalue ** 2, "p": r.pvalue,
                "se": r.stderr, "spearman": rho, "spearman_p": p_rho}
     return summary, d.sort_values("잔차 (실제−예측)", ascending=False, ignore_index=True)
+
+
+def fiscal_per_student(year: int = 2024) -> pd.DataFrame:
+    """저장된 지방교육재정알리미 공시(⑤탭이 받은 것)에서 시도별 재정 합계를 학생 1명당 만원으로. 없으면 빈 표.
+    금액 칸은 edufin_frame이 고른 첫 칸(AMT 우선), 구분 칸은 거르지 않은 전체 합계."""
+    bd, status = edufin_budget(fetch=False)
+    if bd.empty:
+        return pd.DataFrame()
+    fd, meta = edufin_frame(bd)
+    if fd.empty or not meta.get("nums"):
+        return pd.DataFrame()
+    value = meta["nums"][0]
+    f = edufin_by_sido(fd, value).dropna(subset=["연도"])
+    if f.empty:
+        return pd.DataFrame()
+    y = year if (f["연도"] == year).any() else int(f["연도"].max())
+    f = f[f["연도"] == y]
+    sv = school_violence_sido()
+    if sv.empty:
+        return pd.DataFrame()
+    stu = sv[sv["학년도"] == y] if (sv["학년도"] == y).any() else sv[sv["학년도"] == sv["학년도"].max()]
+    out = f.merge(stu[["시도", "학생수"]], on="시도")
+    col = f"재정 / 학생 1명 (만원, {value} {y})"
+    out[col] = (out[value] / out["학생수"] / 1e4).round(1)
+    return out[["시도", col]]
+
+
+def multiple_regression(d: pd.DataFrame, xs: list[str], y: str) -> tuple[dict, pd.DataFrame]:
+    """다중 회귀 y = a + Σ b·x (OLS). 요약(n, R², 수정 R², F p값)과 계수표(계수·표준오차·t·p·표준화 계수·VIF).
+    VIF_j = 1 / (1 − R²_j), R²_j는 x_j를 나머지 x로 회귀한 결정계수. 10을 넘으면 다중공선성이 심한 것으로 본다."""
+    import numpy as np
+    from scipy import stats
+    xs = [x for x in xs if x in d]
+    dd = d.dropna(subset=xs + [y])
+    n, k = len(dd), len(xs)
+    if k == 0 or n <= k + 1:
+        return {}, pd.DataFrame()
+    X = np.column_stack([np.ones(n)] + [dd[x].astype(float).to_numpy() for x in xs])
+    Y = dd[y].astype(float).to_numpy()
+    if np.linalg.matrix_rank(X) < k + 1:
+        return {"n": n, "singular": True}, pd.DataFrame()
+    beta, *_ = np.linalg.lstsq(X, Y, rcond=None)
+    resid = Y - X @ beta
+    dof = n - k - 1
+    sse, sst = float(resid @ resid), float(((Y - Y.mean()) ** 2).sum())
+    r2 = 1 - sse / sst if sst else 0.0
+    cov = sse / dof * np.linalg.inv(X.T @ X)
+    se = np.sqrt(np.diag(cov))
+    t = beta / se
+    p = 2 * stats.t.sf(np.abs(t), dof)
+
+    def vif(j):
+        if k == 1:
+            return 1.0
+        others = [i for i in range(k) if i != j]
+        Xo = np.column_stack([np.ones(n)] + [X[:, 1 + i] for i in others])
+        bj, *_ = np.linalg.lstsq(Xo, X[:, 1 + j], rcond=None)
+        rj = X[:, 1 + j] - Xo @ bj
+        tss = float(((X[:, 1 + j] - X[:, 1 + j].mean()) ** 2).sum())
+        r2j = 1 - float(rj @ rj) / tss if tss else 1.0
+        return float("inf") if r2j >= 1 else 1 / (1 - r2j)
+    sy = Y.std(ddof=1)
+    rows = [{"변수": "(절편)", "계수": beta[0], "표준오차": se[0], "t": t[0], "p값": p[0],
+             "표준화 계수": None, "VIF": None}]
+    for j, x in enumerate(xs):
+        rows.append({"변수": x, "계수": beta[1 + j], "표준오차": se[1 + j], "t": t[1 + j], "p값": p[1 + j],
+                     "표준화 계수": beta[1 + j] * X[:, 1 + j].std(ddof=1) / sy if sy else None, "VIF": vif(j)})
+    table = pd.DataFrame(rows)
+    for c in ["계수", "표준오차", "t", "표준화 계수", "VIF"]:
+        table[c] = pd.to_numeric(table[c]).round(3)
+    table["p값"] = table["p값"].round(3)
+    f_stat = (r2 / k) / ((1 - r2) / dof) if r2 < 1 else float("inf")
+    summary = {"n": n, "k": k, "r2": r2, "adj_r2": 1 - (1 - r2) * (n - 1) / dof, "f": f_stat,
+               "f_p": float(stats.f.sf(f_stat, k, dof)), "max_vif": float(table["VIF"].max())}
+    return summary, table
