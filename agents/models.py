@@ -25,6 +25,7 @@ class Action(BaseModel):
     target: str = Field(description="행동의 상대방 (사람이나 기관), 없으면 빈 문자열")
     notify: list[str] = Field(description="이 행동 뒤에 움직여야 할 역할 이름들 (주어진 목록에서만)")
     rationale: str = Field(description="이 행동을 고른 이유 한 문장")
+    line: str = Field(default="", description="이 행동을 하며 이 인물이 하는 대사 한 마디 (드라마 대본용, 인물의 말투로, 따옴표 없이)")
 
 
 Decision = Literal["허용", "조건부 허용", "차단"]
