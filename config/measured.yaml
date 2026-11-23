@@ -27,6 +27,14 @@ sources:
     title: 경찰청_아동학대 검거 및 조치 현황 (2023.12.31.)
     url: https://www.data.go.kr/data/15037062/fileData.do
     file: data/measured/raw/경찰청_아동학대_검거_및_조치_현황_20231231.csv
+  kbw_sido_2024q1:
+    title: 2024년 지역교권보호위원회 개최 건수 (2024.3.28.~6.30., 교육부 제출, 정성국 의원실·한국교총 발표)
+    url: https://te.co.kr/news/article.html?no=24177
+    note: 언론 보도로 옮긴 값 (원자료 미공개). 같은 표가 한국교육신문 https://www.hangyo.com/news/article.html?no=102760 에도 실림
+  kbw_sido_2024:
+    title: 2024년 교권보호위원회 개최 및 교육활동 침해 현황 (17개 시·도교육청 제출, 백승아 의원실 발표)
+    url: https://www.incheontoday.com/news/articleView.html?idxno=302112
+    note: 언론 보도로 옮긴 값. 기사에 이름이 나온 4개 시도만 있음. 같은 수치 https://www.edpl.co.kr/news/articleView.html?idxno=16924
   schools:
     title: 경기도교육청_행정구역별_학제별_학급_학생_교원 (2025.4.1.)
     url: https://www.data.go.kr/data/15077331/fileData.do
@@ -36,6 +44,20 @@ sources:
 committee_cases:
   source: kbw
   by_year: {2019: 2662, 2020: 1197, 2021: 2269, 2022: 3035, 2023: 5050}
+
+# 시도별 교권보호위원회 심의(개최) 건수. 원자료가 아니라 국회의원실 발표를 옮긴 보도 값이라 신뢰도 C.
+committee_by_sido:
+  q2024_regional:   # 2024.3.28.~6.30. 지역교권보호위원회 (학교→교육지원청 이관 직후 약 3개월), 합계 1,364 [kbw_sido_2024q1]
+    source: kbw_sido_2024q1
+    days: 95
+    counts: {서울: 172, 부산: 78, 대구: 49, 인천: 99, 광주: 55, 대전: 54, 울산: 35, 세종: 21, 경기: 356,
+             강원: 53, 충북: 79, 충남: 61, 전북: 48, 전남: 30, 경북: 50, 경남: 96, 제주: 28}
+  y2024:            # 2024년 전체, 전국 4,199. 기사에 나온 시도만 [kbw_sido_2024]
+    source: kbw_sido_2024
+    total: 4199
+    counts: {경기: 1054, 서울: 583, 경남: 282, 인천: 277}
+    incheon_by_actor: {학생: 238, 보호자: 39}
+    national_actor_share: {학생: 0.89, 보호자: 0.11}
 
 # 2023학년도 교보위 침해 유형별 건수 [kbw] (합계 5,050)
 committee_types_2023:

@@ -141,3 +141,13 @@ def test_evidence_page_recovers_from_stale_calibration_module(monkeypatch):
     sys.modules.pop("common", None)
     at = AppTest.from_file(str(ROOT / "app" / "pages" / "3_근거_자료.py"), default_timeout=60).run()
     assert not at.exception
+
+
+def test_committee_by_sido_totals_match_reports():
+    c = M["committee_by_sido"]
+    assert sum(c["q2024_regional"]["counts"].values()) == 1364
+    assert len(c["q2024_regional"]["counts"]) == 17
+    assert sum(c["y2024"]["incheon_by_actor"].values()) == c["y2024"]["counts"]["인천"]
+    t = cal.committee_by_sido()
+    assert t.iloc[0]["시도"] == "경기" and t.iloc[0]["2024년"] == 1054
+    assert 2.8 < cal.gyeonggi_committee_per_day() < 3.0

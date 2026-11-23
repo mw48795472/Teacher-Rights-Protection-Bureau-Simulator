@@ -96,3 +96,23 @@ def test_data_sources_table_lists_every_key():
     assert {"LAW_OC", "ASSEMBLY_KEY", "GG_DATA_KEY", "NEIS_KEY", "ANTHROPIC_API_KEY", "GOOGLE_TRANSLATE_API_KEY"} <= set(t["키"])
     for s in cal.load()["sources"].values():   # measured.yaml 의 원자료는 모두 출처 표에 있다
         assert s["url"] in set(t["링크"]), s["title"]
+
+
+def test_cached_law_docs_and_load_corpus_replace_seed(tmp_path, monkeypatch):
+    from collector.schema import Document
+    law = Document(id="ord-live-6", source_type="ordinance", title="조례 제6조", text="x" * 200, article_no="제6조",
+                   url="https://www.law.go.kr/x", reliability="A", verified=True)
+    p = tmp_path / "law.jsonl"
+    monkeypatch.delenv("LAW_OC", raising=False)
+    assert pipeline.cached_law_docs(path=p) == []
+    monkeypatch.setenv("LAW_OC", "k")
+    monkeypatch.setattr(pipeline, "_collect_law_api", lambda *a: [law])
+    assert [d.id for d in pipeline.cached_law_docs(path=p)] == ["ord-live-6"] and p.exists()
+    monkeypatch.setattr(pipeline, "_collect_law_api", lambda *a: (_ for _ in ()).throw(RuntimeError("down")))
+    assert [d.id for d in pipeline.cached_law_docs(path=p, ttl=0)] == ["ord-live-6"]
+
+    monkeypatch.setattr(pipeline, "cached_law_docs", lambda: [law])
+    monkeypatch.setattr(pipeline, "OUT", tmp_path / "none.jsonl")
+    docs = pipeline.load_corpus(path=pipeline.OUT, live_bills=False)
+    ids = {d.id for d in docs}
+    assert "ord-live-6" in ids and "ord-06" not in ids   # 같은 조문번호 시드 요약이 빠짐
