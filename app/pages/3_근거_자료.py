@@ -43,7 +43,39 @@ st.caption("링크는 국가법령정보센터와 경기교권보호지원센터
 
 st.subheader("근거 자료 검색")
 
-q = st.text_input("질문", "전담관이 교육활동 침해 여부를 직접 판단할 수 있나요?")
+# 지식베이스(조례·교육부 자료·보도·해외 사례)로 답이 나오는 질문들. 누르면 검색 칸에 들어가 바로 검색된다.
+EXAMPLES = {
+    "전담관·교권보호단": [
+        "전담관이 교육활동 침해 여부를 직접 판단할 수 있나요?",
+        "교권보호전담관은 어떤 업무를 하나요?",
+        "교권보호단은 기존 교육활동보호센터와 어떻게 연계하나요?",
+    ],
+    "절차·조치": [
+        "교원이 아동학대로 신고되면 교육감 의견은 어떻게 제출하나요?",
+        "지역교권보호위원회는 어떤 절차로 심의하나요?",
+        "수업을 방해하는 학생을 분리할 수 있나요?",
+    ],
+    "민원·현장 대응": [
+        "악성 민원에 교육청은 어떻게 대응하나요?",
+        "중대 사안이 생기면 누가 현장에 출동하나요?",
+        "프랑스는 교사 보호를 어떻게 조직하나요?",
+    ],
+}
+st.session_state.setdefault("evidence_q", EXAMPLES["전담관·교권보호단"][0])
+
+
+def _ask(question: str) -> None:
+    st.session_state["evidence_q"] = question
+
+
+st.caption("예시 질문을 누르면 바로 검색합니다.")
+for col, (group, qs) in zip(st.columns(len(EXAMPLES)), EXAMPLES.items()):
+    with col:
+        st.markdown(f"**{group}**")
+        for i, eq in enumerate(qs):
+            st.button(eq, key=f"ex-{group}-{i}", on_click=_ask, args=(eq,), width="stretch")
+
+q = st.text_input("질문", key="evidence_q")
 k = st.slider("가져올 자료 수", 1, 10, 4)
 if q:
     hits = retriever().search(q, k=k)
