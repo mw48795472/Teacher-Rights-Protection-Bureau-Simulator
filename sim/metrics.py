@@ -24,7 +24,8 @@ def to_frame(cases: list[Case], structure: str) -> pd.DataFrame:
         if c.closed is None:
             continue
         rows.append({
-            "structure": structure, "id": c.id, "label": c.label, "type": c.type,
+            "structure": structure, "id": c.id, "office": c.office,
+            "committee_wait_days": c.committee_wait / HOURS_PER_DAY, "label": c.label, "type": c.type,
             "severity": c.severity, "perrow": c.perrow, "interdependence": c.interdependence,
             "n_needs": len(c.needs),
             "arrival_day": c.arrival / HOURS_PER_DAY,
