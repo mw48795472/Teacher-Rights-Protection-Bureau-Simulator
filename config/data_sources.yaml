@@ -1,0 +1,175 @@
+# 시뮬레이터·대시보드가 쓰는 데이터 출처 한곳 정리. 실측 데이터 화면과 README '데이터 출처' 표가 이 파일을 따릅니다.
+# 기준일: 원자료의 데이터 기준일(또는 공개일). API는 '수시'(호출 시점 최신).
+# key: 필요한 키 이름 (.env 또는 Streamlit Secrets). 없으면 '-'.
+# used_in: 이 데이터가 들어가는 시뮬레이터 값이나 화면.
+
+sources:
+  # ── 실측 통계 (config/measured.yaml, data/measured/) ──
+  - group: 실측 통계
+    provider: 교육부
+    name: 교권보호위원회 개최 현황
+    url: https://www.data.go.kr/data/15137983/fileData.do
+    date: "2024-02-29"
+    format: HWPX (공공데이터포털 파일)
+    key: "-"
+    used_in: 사안 유형 비율(실측 기반), 심의 건수 추이, 지식베이스
+  - group: 실측 통계
+    provider: 교육부
+    name: 교육활동 침해 및 교원치유지원센터 지원 현황
+    url: https://www.data.go.kr/data/15112904/fileData.do
+    date: "2024-02-29"
+    format: HWPX (공공데이터포털 파일)
+    key: "-"
+    used_in: 교육활동보호센터 이용 건수, 2019 심의 건수, 지식베이스
+  - group: 실측 통계
+    provider: 교육부
+    name: 교육활동 보호 후속 조치 추진현황
+    url: https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=98939&lev=0&m=020402
+    date: "2024-05"
+    format: PDF (보도자료 별첨)
+    key: "-"
+    used_in: 무고성 아동학대 신고 비율(교육감 의견 제출 연 환산), 심의 결과, 1395 상담, 지식베이스
+  - group: 실측 통계
+    provider: 경기도교육청
+    name: 행정구역별 학제별 학급·학생·교원
+    url: https://www.data.go.kr/data/15077331/fileData.do
+    date: "2025-04-01"
+    format: XLSX → data/measured/gyeonggi_offices.csv
+    key: "-"
+    used_in: 교육지원청별 사안 비중(교원 수 비례)
+  - group: 실측 통계
+    provider: 보건복지부
+    name: 아동학대 발생 현황 (시도별)
+    url: https://www.data.go.kr/data/15127920/fileData.do
+    date: "2024-12-31"
+    format: CSV
+    key: "-"
+    used_in: 실측 데이터 화면 참고 차트 (시뮬레이터 값에는 안 씀)
+  - group: 실측 통계
+    provider: 경찰청
+    name: 아동학대 검거 및 조치 현황
+    url: https://www.data.go.kr/data/15037062/fileData.do
+    date: "2023-12-31"
+    format: CSV
+    key: "-"
+    used_in: 실측 데이터 화면 참고 차트 (시뮬레이터 값에는 안 씀)
+
+  # ── 위치·기관 ──
+  - group: 위치·기관
+    provider: 한국교육시설안전원
+    name: 전국초중등학교위치표준데이터 (경기 2,576곳)
+    url: https://www.data.go.kr/tcs/dss/selectDataSetList.do?keyword=전국초중등학교위치표준데이터
+    date: "2026-10-01"
+    format: CSV → data/schools/gyeonggi_schools.csv
+    key: "-"
+    used_in: 시뮬레이션 지도, 학교 → 관할 교육지원청 (교원 수 표가 없을 때 사안 비중)
+  - group: 위치·기관
+    provider: 교육부 (NEIS)
+    name: 학교기본정보
+    url: https://open.neis.go.kr
+    date: 수시
+    format: Open API
+    key: NEIS_KEY
+    used_in: 근거 자료 화면 학교 정보 대조 (선택)
+  - group: 위치·기관
+    provider: 경기도 (경기데이터드림)
+    name: 경기도 지구대(파출소) 현황
+    url: https://data.gg.go.kr/portal/data/service/selectServicePage.do?infId=DQ2I0RA86JC3Z2M9Q8RZ17985111&infSeq=3
+    date: 수시 (2025-12-31 기준 자료)
+    format: Open API (Ptrldvsnsubpolcstus)
+    key: GG_DATA_KEY
+    used_in: 실측 데이터 화면 교육지원청별 경찰 관서 수 (참고)
+  - group: 위치·기관
+    provider: 경기도 (경기데이터드림)
+    name: 경기도 초중고등학교 현황
+    url: https://data.gg.go.kr/portal/data/service/selectServicePage.do?infId=1CO945ICIYJN0ZYSPR0F21083003&infSeq=3
+    date: 수시
+    format: Open API (GgSchoolM)
+    key: GG_DATA_KEY
+    used_in: python -m collector.gg_data 로 저장, 학교 위치 대조용
+
+  # ── 지식베이스 (근거 검색·인용) ──
+  - group: 지식베이스
+    provider: 법제처 (국가법령정보센터)
+    name: 법령·자치법규·행정규칙·판례 (교원지위법, 경기도교육청 교권보호전담관 운영 조례, 교육부 고시 등)
+    url: https://open.law.go.kr
+    date: 수시
+    format: Open API (DRF)
+    key: LAW_OC
+    used_in: 근거 자료·에이전트 시뮬레이션 조문 인용 (config/sources.yaml laws·ordinances·admin_rules·precedents)
+  - group: 지식베이스
+    provider: 국회 (열린국회정보)
+    name: 국회의원 발의법률안 + 법률안 제안이유 및 주요내용
+    url: https://open.assembly.go.kr/portal/data/service/selectAPIServicePage.do/OK7XM1000938DS17215
+    date: 수시 (하루 1회 갱신)
+    format: Open API (nzmimeepazxkubdpn, BPMBILLSUMMARY)
+    key: ASSEMBLY_KEY
+    used_in: 교원지위법·초중등교육법·아동학대처벌법 개정안 제안이유를 근거 자료로 검색, 실측 데이터 화면 법률안 목록
+  - group: 지식베이스
+    provider: 교육부
+    name: 보도자료 게시판 (교권·교육활동 보호 키워드, 첨부 HWPX·PDF 포함)
+    url: https://www.moe.go.kr/boardCnts/listRenew.do?boardID=294&m=020402
+    date: 2023-07 이후 게시글
+    format: 웹 + 첨부파일
+    key: "-"
+    used_in: 근거 자료 (config/sources.yaml boards.moe_press)
+  - group: 지식베이스
+    provider: 경기도교육청
+    name: 보도자료 게시판 (교권보호단·교권보호전담관 등 키워드)
+    url: https://www.goe.go.kr/goe/na/ntt/selectNttList.do?mi=10102&bbsId=1922
+    date: 2025-01 이후 게시글
+    format: 웹
+    key: "-"
+    used_in: 근거 자료 (config/sources.yaml boards.goe_press)
+  - group: 지식베이스
+    provider: 경기교권보호지원센터
+    name: 지역교권보호위원회·피해교원 보호조치·교권보호119 등 안내 8쪽
+    url: https://more.goe.go.kr/eapc/
+    date: 수집 시점
+    format: 웹
+    key: "-"
+    used_in: 근거 자료, 시뮬레이션 절차 설명
+  - group: 지식베이스
+    provider: 경기도의회 · 프랑스 교육부
+    name: 경기도의회 보도자료, 프랑스 교육부 공보(EMS 비교 사례)
+    url: https://www.education.gouv.fr/bo/2024/Hebdo14/MENE2409242C
+    date: 수집 시점
+    format: 웹
+    key: "-"
+    used_in: 근거 자료, 비교 구조
+  - group: 지식베이스
+    provider: 언론 (아시아경제·한국교육신문·경인일보 등 8건)
+    name: 교권보호단 운영 보도
+    url: config/sources.yaml
+    date: 2025~2026 기사
+    format: 웹 (분석용 로컬 캐시만, 저장소 스냅샷에는 안 넣음)
+    key: "-"
+    used_in: 사안 유입량 등 일부 가정값의 근거, 근거 자료(신뢰도 C)
+  - group: 지식베이스
+    provider: 팀 정리
+    name: 조직이론(Lawrence·Thompson·Perrow·Burns·Gulick·Van de Ven) 요약
+    url: config/seed_corpus.yaml
+    date: "-"
+    format: YAML
+    key: "-"
+    used_in: 결과 설명의 이론 근거 (신뢰도 B)
+
+  # ── 보조 서비스 ──
+  - group: 보조 서비스
+    provider: Anthropic
+    name: Claude API
+    url: https://console.anthropic.com
+    date: "-"
+    format: API
+    key: ANTHROPIC_API_KEY
+    used_in: 결과 설명, 사안 로그 서술, 근거 Q&A 답변 (없으면 규칙 기반 요약)
+  - group: 보조 서비스
+    provider: Google Cloud
+    name: Cloud Translation API
+    url: https://cloud.google.com/translate
+    date: "-"
+    format: API
+    key: GOOGLE_TRANSLATE_API_KEY
+    used_in: 화면 영어 번역 (선택)
+
+# 아직 없는 데이터 (정보공개청구 필요): 교권보호단 유형별 접수 건수, 처리 단계별 소요일, 전담관 상근·비상근 인원과 응답률, 지역교권보호위원회 개최 간격.

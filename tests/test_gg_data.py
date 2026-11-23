@@ -78,5 +78,5 @@ def test_tables_map_to_offices():
 
 
 def test_no_data_code_returns_empty():
-    rows, total = gg._parse({"RESULT": {"CODE": "INFO-200", "MESSAGE": "해당하는 데이터가 없습니다."}}, "X")
+    rows, total = gg.parse_openapi({"RESULT": {"CODE": "INFO-200", "MESSAGE": "해당하는 데이터가 없습니다."}}, "X")
     assert rows == [] and total == 0

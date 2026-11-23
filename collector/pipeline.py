@@ -14,6 +14,7 @@
     pages         웹페이지 (교육부·경기도교육청 게시글은 첨부 HWPX까지 읽음)
     boards        교육부·경기도교육청 보도자료 게시판 키워드 검색
     files         HWPX·PDF·DOCX 파일 (URL 또는 로컬 경로), data/raw/inbox/ 폴더
+    bills         국회 법률안과 제안이유                 열린국회정보 API (ASSEMBLY_KEY)
 
 결과: data/processed/corpus.jsonl
 원문이 들어오면 같은 대상을 요약한 시드(팀 요약)를 뺀다. 대응 규칙은 merge() 참고.
@@ -41,7 +42,7 @@ INBOX = ROOT / "data" / "raw" / "inbox"
 MIN_REPLACE_CHARS = 150
 # 스냅샷(저장소에 커밋)에 넣는 유형. 법령·판례는 저작권 보호 대상이 아니고(저작권법 제7조),
 # 정부 보도자료·안내는 공공누리 제1유형이다. 언론 기사(C)는 넣지 않는다.
-SNAPSHOT_TYPES = {"law", "ordinance", "admin_rule", "precedent", "policy", "foreign_policy"}
+SNAPSHOT_TYPES = {"law", "ordinance", "admin_rule", "precedent", "policy", "foreign_policy", "bill"}
 
 COLLECTORS = {
     "laws": "법률·시행령 조문 (LAW_OC)",
@@ -51,7 +52,9 @@ COLLECTORS = {
     "pages": "웹페이지 (키 불필요)",
     "boards": "교육부·경기도교육청 보도자료 검색 (키 불필요)",
     "files": "HWPX·PDF·DOCX 파일, data/raw/inbox/ (키 불필요)",
+    "bills": "국회 법률안·제안이유 (ASSEMBLY_KEY)",
 }
+KEYS = {**{k: "LAW_OC" for k in ("laws", "ordinances", "admin_rules", "precedents")}, "bills": "ASSEMBLY_KEY"}
 NEEDS_LAW_OC = {"laws", "ordinances", "admin_rules", "precedents"}
 
 
@@ -195,6 +198,10 @@ def collect_live(log=print, only: set[str] | None = None) -> list[Document]:
                 log(f"[파일] {f.get('url') or f.get('path')} 실패: {e}")
         docs += [p for d in collect_inbox(INBOX, log=log) for p in chunk(d)]
 
+    if "bills" in only:
+        from .assembly import collect_bills
+        docs += collect_bills(src.get("bills"), log=log)
+
     # 같은 문서가 게시판 검색과 pages 양쪽에서 들어오면 하나만 남긴다(replaces 가 있는 쪽 우선).
     uniq: dict[str, Document] = {}
     for d in docs:
@@ -251,19 +258,25 @@ def _read_jsonl(path: Path) -> list[Document]:
     return [Document.from_dict(json.loads(l)) for l in path.read_text(encoding="utf-8").splitlines() if l]
 
 
-def load_corpus(path: Path = OUT) -> list[Document]:
-    """로컬 수집 결과 → 없으면 시드 + 커밋된 스냅샷(배포 환경) → 없으면 시드."""
+def load_corpus(path: Path = OUT, live_bills: bool = True) -> list[Document]:
+    """로컬 수집 결과 → 없으면 시드 + 커밋된 스냅샷(배포 환경) → 없으면 시드.
+    법률안이 하나도 없고 ASSEMBLY_KEY 가 있으면 국회 법률안을 받아(하루 캐시) 더한다."""
     if path.exists():
-        return _read_jsonl(path)
-    if path == OUT and SNAPSHOT.exists():
-        return merge(load_seed(), _read_jsonl(SNAPSHOT))
-    return load_seed()
+        docs = _read_jsonl(path)
+    elif path == OUT and SNAPSHOT.exists():
+        docs = merge(load_seed(), _read_jsonl(SNAPSHOT))
+    else:
+        docs = load_seed()
+    if live_bills and path == OUT and not any(d.source_type == "bill" for d in docs):
+        from .assembly import cached_bills
+        docs += cached_bills(load_sources().get("bills"))
+    return docs
 
 
 def _print_list() -> None:
-    has = bool(os.environ.get("LAW_OC"))
     for k, v in COLLECTORS.items():
-        ok = "사용 가능" if (k not in NEEDS_LAW_OC or has) else "LAW_OC 필요"
+        need = KEYS.get(k)
+        ok = "사용 가능" if (not need or os.environ.get(need)) else f"{need} 필요"
         print(f"  {k:<12} {v}  [{ok}]")
 
 
