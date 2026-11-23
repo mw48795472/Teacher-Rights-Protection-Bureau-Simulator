@@ -6,92 +6,117 @@ from common import llm_badge, retriever, simulate, structures
 st.set_page_config(page_title="교권보호국 시뮬레이터", page_icon="🏫", layout="wide")
 llm_badge()
 
-st.markdown(
-    """
+CSS = """
 <style>
-.slide, .card {word-break:keep-all;}
-.slide {border:1px solid rgba(128,128,128,.25); border-radius:14px; padding:22px 26px; margin:6px 0 14px;
-        background: rgba(128,128,128,.04);}
-.kicker {font-size:.8rem; letter-spacing:.08em; opacity:.6; font-weight:600;}
-.slide h2 {font-size:1.55rem; margin:.25rem 0 .6rem; line-height:1.35;}
-.slide ul {margin:0; padding-left:1.1rem;} .slide li {margin:.2rem 0; font-size:1.02rem;}
-.hero h1 {font-size:2.3rem; margin:.2rem 0 .4rem;} .hero p {font-size:1.1rem; opacity:.8; margin:0;}
-.card {border:1px solid rgba(128,128,128,.25); border-radius:12px; padding:16px 18px; height:100%;}
-.card .badge {display:inline-block; font-size:.75rem; font-weight:700; padding:2px 8px; border-radius:999px;
-              background:rgba(42,111,219,.12); color:#2a6fdb;}
-.card h4 {margin:.5rem 0 .4rem; font-size:1.05rem; line-height:1.35;}
-.card ul {margin:0; padding-left:1rem;} .card li {font-size:.92rem; margin:.15rem 0;}
-.cond {text-align:center;} .cond .num {font-size:2rem; font-weight:800; opacity:.35;}
+.block-container {max-width: 1100px;}
+.h-wrap, .h-wrap * {word-break: keep-all;}
+.h-hero {padding: 28px 30px; border-radius: 16px; margin: 4px 0 28px;
+         background: linear-gradient(135deg, rgba(42,111,219,.10), rgba(42,111,219,.02));
+         border: 1px solid rgba(42,111,219,.18);}
+.h-hero .tag {font-size: .8rem; font-weight: 600; letter-spacing: .06em; opacity: .65;}
+.h-hero h1 {font-size: 2.2rem; line-height: 1.25; margin: .35rem 0 .5rem; padding: 0;}
+.h-hero .lead {font-size: 1.05rem; opacity: .8; margin: 0 0 1.1rem;}
+.h-q {font-size: 1.15rem; font-weight: 700; line-height: 1.5; margin: 0 0 .6rem;}
+.h-hero ul {margin: 0; padding-left: 1.1rem;} .h-hero li {margin: .2rem 0; font-size: .98rem;}
+.h-sec {display: flex; align-items: baseline; gap: 10px; margin: 30px 0 12px;
+        border-bottom: 1px solid rgba(128,128,128,.2); padding-bottom: 6px;}
+.h-sec .n {font-size: .85rem; font-weight: 700; color: #2a6fdb;}
+.h-sec .t {font-size: 1.2rem; font-weight: 700;}
+.h-sec .s {font-size: .85rem; opacity: .6; margin-left: auto;}
+.h-grid {display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));}
+.h-grid.sm {grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));}
+.h-card {border: 1px solid rgba(128,128,128,.22); border-radius: 12px; padding: 16px 18px;
+         background: rgba(128,128,128,.03); display: flex; flex-direction: column;}
+.h-card .badge {align-self: flex-start; font-size: .75rem; font-weight: 700; padding: 2px 9px;
+                border-radius: 999px; background: rgba(42,111,219,.12); color: #2a6fdb;}
+.h-card h4 {font-size: 1.02rem; line-height: 1.4; margin: .55rem 0 .45rem; padding: 0;}
+.h-card ul {margin: 0; padding-left: 1rem;} .h-card li {font-size: .9rem; margin: .15rem 0; opacity: .9;}
+.h-card p {font-size: .9rem; margin: 0; opacity: .85;}
+.h-stat .label {font-size: .88rem; opacity: .7;}
+.h-stat .val {font-size: 1.9rem; font-weight: 700; line-height: 1.2; margin: .3rem 0 .2rem;}
+.h-stat .from {font-size: .85rem; opacity: .7;}
+.h-stat .chg {display: inline-block; font-size: .8rem; font-weight: 700; padding: 1px 8px; border-radius: 999px;
+              background: rgba(33,150,83,.13); color: #1f8a4c; margin-top: .4rem; align-self: flex-start;}
+.h-stat .chg.up {background: rgba(214,69,65,.13); color: #c0392b;}
+.h-cond {flex-direction: row; gap: 14px; align-items: flex-start;}
+.h-cond .num {font-size: 1.6rem; font-weight: 800; color: #2a6fdb; opacity: .6; line-height: 1;}
+.h-cond h4 {margin-top: 0;}
+a.h-link {text-decoration: none; color: inherit; transition: border-color .15s, transform .15s;}
+a.h-link:hover {border-color: #2a6fdb; transform: translateY(-2px);}
+a.h-link .go {margin-top: auto; padding-top: .6rem; font-size: .85rem; font-weight: 600; color: #2a6fdb;}
+.h-note {font-size: .85rem; opacity: .6; margin-top: 8px;}
 </style>
-""",
-    unsafe_allow_html=True,
-)
+"""
+st.markdown(CSS, unsafe_allow_html=True)
 
 
-def slide(kicker: str, headline: str, bullets: list[str]):
-    items = "".join(f"<li>{b}</li>" for b in bullets)
-    st.markdown(f'<div class="slide"><div class="kicker">{kicker}</div><h2>{headline}</h2><ul>{items}</ul></div>',
-                unsafe_allow_html=True)
+def html(s: str):
+    st.markdown(f'<div class="h-wrap">{s}</div>', unsafe_allow_html=True)
 
 
-st.markdown('<div class="slide hero"><div class="kicker">조직이론 팀 프로젝트 · 발표용 데모</div>'
-            "<h1>교권보호국 시뮬레이터</h1>"
-            "<p>경기도교육청 교권보호단 재조직을 조직이론으로 실험합니다.</p></div>", unsafe_allow_html=True)
+def section(n: str, title: str, sub: str = "") -> str:
+    return (f'<div class="h-sec"><span class="n">{n}</span><span class="t">{title}</span>'
+            f'<span class="s">{sub}</span></div>')
 
-slide("01 · 질문", "교권보호 업무를 왜 교육감 직속·전담관 체계로 다시 짰고, 어떤 조건에서 효과가 있는가?", [
-    "<b>조직환경</b>: 사안이 몰릴 때 구조별로 얼마나 버티는가 (개방체계·상황이론, Burns &amp; Stalker)",
-    "<b>분업과 조정</b>: 교사가 하던 조정을 조직이 맡으면 무엇이 달라지는가 (Gulick·Thompson·Perrow)",
-])
 
-# 03 핵심 결과: 기본 설정 시뮬레이션에서 바로 계산
+# 히어로: 제목 + 연구 질문
+html('<div class="h-hero"><div class="tag">조직이론 팀 프로젝트 · 발표용 데모</div>'
+     "<h1>교권보호국 시뮬레이터</h1>"
+     '<p class="lead">경기도교육청 교권보호단 재조직을 조직이론으로 실험합니다.</p>'
+     '<p class="h-q">교권보호 업무를 왜 교육감 직속·전담관 체계로 다시 짰고, 어떤 조건에서 효과가 있는가?</p>'
+     "<ul><li><b>조직환경</b>: 사안이 몰릴 때 구조별로 얼마나 버티는가 (개방체계·상황이론, Burns &amp; Stalker)</li>"
+     "<li><b>분업과 조정</b>: 교사가 하던 조정을 조직이 맡으면 무엇이 달라지는가 (Gulick·Thompson·Perrow)</li>"
+     "</ul></div>")
+
 S = structures()
+
+# 01 비교하는 구조
+cards = "".join(
+    f'<div class="h-card"><span class="badge">{s.get("short", k)}</span><h4>{s.get("tagline", s["name"])}</h4>'
+    f'<ul>{"".join(f"<li>{x}</li>" for x in s.get("points", []))}</ul></div>'
+    for k, s in S.items())
+html(section("01", "비교하는 네 가지 구조") + f'<div class="h-grid">{cards}</div>')
+
+# 02 핵심 결과: 기본 설정 시뮬레이션에서 바로 계산
 try:
     a, _ = simulate("A_distributed", 60, 3.0, 7, None, 1.0)
     b, _ = simulate("B_gyeonggi", 60, 3.0, 7, None, 1.0)
-    have = True
 except Exception:
-    have = False
-
-st.markdown('<div class="kicker" style="margin-top:8px">02 · 비교하는 네 가지 구조</div>', unsafe_allow_html=True)
-cols = st.columns(len(S))
-for col, (k, s) in zip(cols, S.items()):
-    with col:
-        pts = "".join(f"<li>{x}</li>" for x in s.get("points", []))
-        st.markdown(f'<div class="card"><span class="badge">{s.get("short", k)}</span>'
-                    f'<h4>{s.get("tagline", s["name"])}</h4><ul>{pts}</ul></div>', unsafe_allow_html=True)
-
-st.markdown('<div class="kicker" style="margin-top:22px">03 · 핵심 결과 (기본 설정, 분산 구조 → 교권보호단)</div>',
-            unsafe_allow_html=True)
-if have:
-    m = [("종결까지", "closure_days", "근무일"), ("첫 응답까지", "first_response_h", "시간"),
-         ("교사가 찾아간 기관", "contacts", "곳"), ("같은 내용 반복 진술", "repeats", "번")]
-    mc = st.columns(4)
-    for c, (label, col, unit) in zip(mc, m):
+    a = b = None
+if a is not None:
+    stats = []
+    for label, col, unit in [("종결까지", "closure_days", "근무일"), ("첫 응답까지", "first_response_h", "시간"),
+                             ("교사가 찾아간 기관", "contacts", "곳"), ("같은 내용 반복 진술", "repeats", "번")]:
         va, vb = a[col].mean(), b[col].mean()
-        c.metric(label, f"{vb:.1f}{unit}", f"{(vb - va) / va * 100:+.0f}% (분산 {va:.1f}{unit})" if va else None,
-                 delta_color="inverse", border=True)
-    st.caption("가정값 위의 사고실험입니다. 절대 수치보다 차이의 방향과 크기로 읽어 주세요. 자세한 비교는 시뮬레이션 페이지에서.")
+        d = (vb - va) / va * 100 if va else 0
+        stats.append(f'<div class="h-card h-stat"><div class="label">{label}</div>'
+                     f'<div class="val">{vb:.1f}{unit}</div><div class="from">분산 구조 {va:.1f}{unit}</div>'
+                     f'<span class="chg{" up" if d > 0 else ""}">{d:+.0f}%</span></div>')
+    html(section("02", "핵심 결과", "기본 설정 · 분산 구조 → 교권보호단") + f'<div class="h-grid sm">{"".join(stats)}</div>'
+         '<div class="h-note">가정값 위의 사고실험입니다. 절대 수치보다 차이의 방향과 크기로 읽어 주세요. '
+         "자세한 비교는 시뮬레이션 페이지에서 볼 수 있습니다.</div>")
 
-st.markdown('<div class="kicker" style="margin-top:18px">04 · 실효성 조건 세 가지 (시뮬레이터에서 켜고 끔)</div>',
-            unsafe_allow_html=True)
-cc = st.columns(3)
-for c, (n, t, d) in zip(cc, [("①", "역할 구분", "기존 센터와의 연계절차<br>(조례 제17조)"),
-                             ("②", "안정적 전담 인력", "상근 수, 비상근 응답성"),
-                             ("③", "제도화", "업무매뉴얼<br>(조례 제25조)")]):
-    c.markdown(f'<div class="card cond"><div class="num">{n}</div><h4>{t}</h4><div>{d}</div></div>',
-               unsafe_allow_html=True)
+# 03 실효성 조건
+conds = "".join(
+    f'<div class="h-card h-cond"><div class="num">{n}</div><div><h4>{t}</h4><p>{d}</p></div></div>'
+    for n, t, d in [("1", "역할 구분", "기존 센터와의 연계절차 (조례 제17조)"),
+                    ("2", "안정적 전담 인력", "상근 수와 비상근 응답성"),
+                    ("3", "제도화", "업무매뉴얼 (조례 제25조)")])
+html(section("03", "실효성 조건 세 가지", "시뮬레이터에서 켜고 끌 수 있음") + f'<div class="h-grid">{conds}</div>')
 
-st.markdown('<div class="kicker" style="margin-top:22px">05 · 둘러보기</div>', unsafe_allow_html=True)
-nc = st.columns(4)
-for c, (icon, t, d) in zip(nc, [("📊", "시뮬레이션", "구조·조건별 수백 건 비교, 지도, 분석"),
-                                ("🧭", "사안 추적", "1호 사안이 누구를 거쳐 가는지"),
-                                ("🤖", "에이전트 시뮬레이션", "행동마다 법령·조례로 허용·차단 판정"),
-                                ("📚", "근거 자료", "법령·매뉴얼·조례와 데이터 출처")]):
-    c.markdown(f'<div class="card"><h4>{icon} {t}</h4><div style="font-size:.92rem">{d}</div></div>',
-               unsafe_allow_html=True)
+# 04 둘러보기 (페이지 링크)
+pages = [("📊", "시뮬레이션", "시뮬레이션", "구조·조건별 수백 건 비교, 관할 지도, 분석"),
+         ("🧭", "사안 추적", "사안_추적", "1호 사안이 누구를 거쳐 가는지"),
+         ("🤖", "에이전트 시뮬레이션", "에이전트_시뮬레이션", "행동마다 법령·조례로 허용·차단 판정"),
+         ("📚", "근거 자료", "근거_자료", "법령·매뉴얼·서식과 데이터 출처"),
+         ("📈", "실측 데이터", "실측_데이터", "공공데이터 실측값과 팀 가정값 비교")]
+links = "".join(f'<a class="h-card h-link" href="{p}" target="_self"><h4>{i} {t}</h4><p>{d}</p>'
+                f'<div class="go">열기 →</div></a>' for i, t, p, d in pages)
+html(section("04", "둘러보기") + f'<div class="h-grid sm">{links}</div>')
 
-st.write("")
-with st.expander("구조별 자세한 정의"):
+html(section("05", "자세히"))
+tab_def, tab_cmp, tab_terms = st.tabs(["구조별 정의", "설정값 비교", "용어 정리"])
+with tab_def:
     for k, s in S.items():
         st.markdown(f"**{s['name']}**  \n{s.get('definition', s['description'])}")
         st.caption(f"이론: {s['theory']}")
@@ -115,11 +140,11 @@ def _row(s: dict) -> dict:
     }
 
 
-with st.expander("한눈에 비교 (설정값)"):
+with tab_cmp:
     st.dataframe(pd.DataFrame([_row(s) for s in S.values()]).set_index("구조").T, width="stretch")
     st.caption("인원·응답 비율·개최 간격 중 출처가 없는 값은 가정값이며 시뮬레이션 사이드바에서 바꿀 수 있습니다.")
 
-with st.expander("용어 정리"):
+with tab_terms:
     st.markdown(
         """
 | 용어 | 뜻 |
@@ -140,5 +165,6 @@ with st.expander("용어 정리"):
 
 n = len(retriever().docs)
 unverified = sum(not d.verified for d in retriever().docs)
+st.write("")
 st.caption(f"지식베이스 문서 {n}개 중 {unverified}개는 팀 요약입니다. 처리시간·확률 대부분은 가정값이므로 "
            "결과는 이론의 논리를 보여주는 사고실험으로 다뤄 주세요.")
