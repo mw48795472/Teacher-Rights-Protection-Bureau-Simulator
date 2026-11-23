@@ -6,12 +6,20 @@ import plotly.graph_objects as go
 
 from common import chart_style, freeze, llm_badge, retriever, schools_enriched, simulate, structures
 from geo.gyeonggi import OFFICES, hierarchy
+from sim import insights
 from sim.explain import explain
 from sim.metrics import METRICS, summarize
 
 st.set_page_config(page_title="시뮬레이션", page_icon="🏫", layout="wide")
 llm_badge()
 st.title("시뮬레이션")
+
+
+def analysis(lines: list[str], title: str = "분석"):
+    if lines:
+        with st.container(border=True):
+            st.markdown(f"**📊 {title}**")
+            st.markdown("\n".join(f"- {x}" for x in lines))
 
 S = structures()
 names = {k: s["name"] for k, s in S.items()}
@@ -58,6 +66,7 @@ summary = summarize(df, "structure")
 st.subheader("사안당 평균 지표")
 show = summary.rename(index=names, columns={k: v[0] for k, v in METRICS.items()} | {"cases": "처리 사안 수"})
 st.dataframe(show, width="stretch")
+analysis(insights.overview(summary, short), "핵심 결과")
 with st.expander("지표와 이론의 연결"):
     st.table(pd.DataFrame([{"지표": v[0], "보는 것": v[1]} for v in METRICS.values()]))
 
@@ -112,6 +121,7 @@ with m2:
     tbl = per.pivot_table(index="office", columns="구조", values="위원회_대기일").round(1)
     st.markdown("**교육지원청별 위원회 대기 (근무일)**")
     st.dataframe(tbl.sort_values(tbl.columns[0], ascending=False), width="stretch", height=520)
+analysis(insights.offices(per, short[which]), f"관할 분석 ({short[which]})")
 with st.expander("감독 구조: 교육부 → 경기도교육청 → 교육지원청 → 위원회·학교"):
     h = hierarchy(sch)
     st.plotly_chart(px.sunburst(h, ids="id", parents="parent", names="label", values="value",
@@ -126,6 +136,7 @@ metric = st.selectbox("지표", list(METRICS), index=1, format_func=lambda k: ME
 g = df.groupby([axis, "구조"])[metric].mean().reset_index()
 st.plotly_chart(px.bar(g, x=axis, y=metric, color="구조", barmode="group",
                        labels={metric: METRICS[metric][0], axis: ""}, **CS), width="stretch")
+analysis(insights.by_type(df, axis, metric, METRICS[metric][0]), "유형별 분석")
 
 if surge:
     st.subheader("① 환경 압력: 날짜별 종결 기간")
@@ -136,8 +147,10 @@ if surge:
     fig.add_vrect(x0=surge_day, x1=surge_day + 7, fillcolor="gray", opacity=0.15, line_width=0)
     st.plotly_chart(fig, width="stretch")
     st.caption("급증 구간에 접수된 사안일수록 오래 걸리면 구조가 환경 변화를 흡수하지 못한다는 뜻입니다.")
+    analysis(insights.surge(df, surge_day), "환경 압력 분석")
 
-st.subheader("결과 설명")
+st.subheader("결과 설명 (Claude)")
+st.caption("위 분석은 숫자를 규칙으로 읽은 것입니다. 아래 버튼은 Claude가 근거 자료를 인용해 두 구조의 차이를 풀어 씁니다.")
 base = st.selectbox("기준 구조", picked, index=0, format_func=names.get)
 target = st.selectbox("비교 구조", picked, index=min(len(picked) - 1, 2), format_func=names.get)
 if st.button("설명 생성", type="primary", disabled=base == target):

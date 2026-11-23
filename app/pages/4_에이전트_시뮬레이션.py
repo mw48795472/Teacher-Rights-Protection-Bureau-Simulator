@@ -7,6 +7,7 @@ from common import llm_badge, retriever, scenarios
 from agents.llm import llm_enabled, model_name
 from agents.roles import STRUCTURES
 from agents.runner import run_agents
+from sim import insights
 
 st.set_page_config(page_title="에이전트 시뮬레이션", page_icon="🏫", layout="wide")
 llm_badge()
@@ -56,6 +57,9 @@ st.subheader("요약")
 summary = {STRUCTURES[k].name: {m: ("예" if v is True else "아니오" if v is False else v) for m, v in r.metrics.items()}
            for k, r in runs.items()}
 st.dataframe(pd.DataFrame(summary).astype(str), width="stretch")
+with st.container(border=True):
+    st.markdown("**📊 분석**")
+    st.markdown("\n".join(f"- {x}" for x in insights.agent_runs({STRUCTURES[k].name: r.metrics for k, r in runs.items()})))
 
 docs = {d.id: d for d in retriever().docs}
 cols = st.columns(len(runs))
