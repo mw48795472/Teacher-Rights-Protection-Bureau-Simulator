@@ -1,0 +1,15 @@
+name: B. 경기 교권보호단 (조례 시행 후)
+short: B 교권보호단
+kind: integrated
+description: 교육감 직속 위계 + 상근 1명·비상근 1~2명·센터 담당이 사안 단위로 묶이는 매트릭스 구조. 조례로 연계절차와 매뉴얼을 갖춤.
+theory: 위계에 의한 조정 + 사안 단위 팀에 의한 조정 (Gulick, Thompson), 공식화 (조례)
+params:
+  regular_officers: 20
+  caseload_per_regular: 6
+  nonregular_officers: 280
+  nonregular_availability: 0.25
+  center_staff: 5
+  linkage_procedure: true
+  manual: true
+  escalation: true
+  committee_interval_days: 30

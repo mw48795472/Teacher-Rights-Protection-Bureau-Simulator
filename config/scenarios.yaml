@@ -1,0 +1,21 @@
+# 시연용 시나리오 사안. 사실 기반 사안은 기사에 나온 사실만 쓴다.
+scenarios:
+  - name: 1호 사안 (부천, 기사 사실 기반)
+    description: 학생 간 다툼을 중재한 교사가 학부모로부터 악성 민원과 소송을 당함. 교육감이 1호 사안으로 지정하고 학부모를 형사 고발. [경인일보 8.10, 연합뉴스]
+    type: 악성민원 + 소송
+    severity: 3
+    needs: [상담, 법률, 갈등조정, 수사연계]
+    analyzable: false
+  - name: 무고성 아동학대 신고 (가상)
+    description: 수업 중 생활지도를 이유로 학부모가 아동학대로 신고하고 반복 민원을 넣는 가상 사안.
+    type: 무고성 아동학대 신고
+    severity: 2
+    needs: [법률, 상담, 행정, 수사연계]
+    analyzable: false
+  # 드라마 「참교육」 시나리오는 팀이 줄거리를 직접 확인해 아래 형식으로 추가해 주세요.
+  # - name: 참교육 에피소드 N (가상 시나리오)
+  #   description: ...
+  #   type: ...
+  #   severity: 3
+  #   needs: [상담, 법률, 수사연계]
+  #   analyzable: false

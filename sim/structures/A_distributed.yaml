@@ -1,0 +1,12 @@
+name: A. 기존 분산 구조
+short: A 분산 구조
+kind: distributed
+description: 상담·법률·행정 업무가 부서별로 나뉘어 있고 연결·조정하는 담당자가 없다. 피해 교사가 각 창구를 직접 찾아간다.
+theory: 분화는 있으나 통합이 부족 (Lawrence & Lorsch), 분업은 있는데 조정자가 없음 (Gulick)
+params:
+  center_staff: 6          # 지역교권보호지원센터 상담 인력 (가정)
+  legal_staff: 2           # 법률지원 인력 (가정)
+  admin_staff: 4           # 교육지원청 행정 담당 (가정)
+  misroute_prob: 0.3       # 창구를 잘못 찾아갈 확률 (가정)
+  relay_prob: 0.5          # 기관 간 정보가 교사를 거쳐 전달돼야 할 확률 (가정)
+  committee_interval_days: 60   # 2018~2020년엔 연 1회 내외 개최 [한국교육신문]

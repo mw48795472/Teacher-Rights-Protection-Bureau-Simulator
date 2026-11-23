@@ -1,0 +1,191 @@
+# 시드 지식베이스: 팀 조사 문서에서 옮긴 요약입니다.
+# reliability: A=공식자료, B=학술, C=언론, D=참고(인용 금지)
+# verified: false 인 항목은 팀 요약이며 원문 대조가 필요합니다.
+# 실제 조문 원문은 `python -m collector.pipeline` 실행 시 국가법령정보센터 API로 받아 덮어씁니다.
+documents:
+  # ── 경기도교육청 교권보호전담관 운영 조례 (2026.10.7 시행) ──
+  - id: ord-06
+    source_type: ordinance
+    title: 경기도교육청 교권보호전담관 운영 조례 제6조 (교권보호단 설치)
+    article_no: "제6조"
+    url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
+    reliability: A
+    verified: false
+    text: 교육감 직속으로 교권보호단을 둔다. 교육감이 단장을 맡아 교권보호 업무를 총괄한다.
+  - id: ord-09
+    source_type: ordinance
+    title: 조례 제9조 (전담관의 구성)
+    article_no: "제9조"
+    url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
+    reliability: A
+    verified: false
+    text: 전담관은 교육 및 교육행정 분야 전문가, 변호사 등 법률 전문가, 상담·심리·정신건강 분야 전문가, 경찰 등 관계기관 업무 경험자, 갈등조정 및 분쟁조정 전문가, 학교공동체 회복 관련 경험자로 구성할 수 있다.
+  - id: ord-12
+    source_type: ordinance
+    title: 조례 제12조 (전담관의 업무)
+    article_no: "제12조"
+    url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
+    reliability: A
+    verified: false
+    text: 전담관은 사안 접수와 초기 상담, 지원 필요성 확인, 지원계획 수립, 사안 처리 절차와 권리 안내, 법률·행정·상담·심리·치유 지원 전문기관 연계, 교원의 회복과 교육활동 복귀를 위한 사후 관리, 사례 분석과 제도 개선 의견 제시 업무를 수행한다.
+  - id: ord-13
+    source_type: ordinance
+    title: 조례 제13조·제14조 (전담관 배정과 공동지원)
+    article_no: "제13조"
+    url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
+    reliability: A
+    verified: false
+    text: 사안의 내용, 긴급성, 전문성, 지역적 여건을 고려해 전담관을 배정한다. 중대한 사안이나 전문적인 지원이 필요한 경우 복수의 전담관 또는 관련 전문가가 공동으로 지원할 수 있다.
+  - id: ord-15
+    source_type: ordinance
+    title: 조례 제15조 (전담관 권한의 한계)
+    article_no: "제15조"
+    url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
+    reliability: A
+    verified: false
+    text: 전담관에게는 법령상 조사권·수사권이나 심의·의결권이 없으며, 교육활동 침해 여부나 범죄 성립 여부에 대한 최종 판단을 대신할 수 없다. 침해 여부 심의는 지역교권보호위원회가, 범죄 혐의 수사는 수사기관이 담당한다.
+  - id: ord-17
+    source_type: ordinance
+    title: 조례 제17조 (기존 지원체계와의 협력)
+    article_no: "제17조"
+    url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
+    reliability: A
+    verified: false
+    text: 기존 교육활동 보호 지원체계와 전담관의 업무가 중복되지 않도록 업무 범위와 연계절차를 정할 수 있다.
+  - id: ord-23
+    source_type: ordinance
+    title: 조례 제23조 (성과 평가)
+    article_no: "제23조"
+    url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
+    reliability: A
+    verified: false
+    text: 교권보호단과 전담관 운영의 성과를 평가하고 그 결과를 운영 개선에 반영한다.
+  - id: ord-25
+    source_type: ordinance
+    title: 조례 제25조 (업무매뉴얼)
+    article_no: "제25조"
+    url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
+    reliability: A
+    verified: false
+    text: 교권보호단과 전담관이 통일적이고 전문적으로 업무를 수행할 수 있도록 사안 접수, 초기 대응, 전담관 배정, 현장지원, 관계기관 연계, 법률·상담·심리·치유 지원, 사안 종결 및 후속 지원을 포함한 업무매뉴얼을 마련한다.
+
+  # ── 기존 체계 ──
+  - id: goe-committee
+    source_type: policy
+    title: 경기도교육청 지역교권보호위원회 안내
+    url: https://more.goe.go.kr/eapc/subList/20000000413
+    reliability: A
+    verified: false
+    text: 지역교권보호위원회는 교육활동 침해 예방 대책 수립, 침해 학생 및 보호자에 대한 조치, 교원과 관련된 분쟁 조정을 심의한다. 교원·학부모·변호사·경찰 등 다양한 이해관계자가 참여한다.
+  - id: hangyo-committee
+    source_type: news
+    title: 시·도교권보호위원회 개최 실적 (한국교육신문)
+    url: https://hangyo.com/mobile/article.html?no=96268
+    reliability: C
+    verified: false
+    text: 2018~2020년 시·도교권보호위원회 개최 건수는 연간 1회 내외로, 분쟁 조정 기능을 수행한 경우가 거의 없었다.
+  - id: asiae-0713
+    source_type: news
+    title: 교권보호단 신설 발표 (아시아경제 7.13)
+    url: https://view.asiae.co.kr/article/2026071317583974597
+    reliability: C
+    verified: false
+    text: 기존에는 교권 침해, 아동학대 신고, 악성 민원 대응 업무가 부서별로 분산돼 피해 교사가 복잡한 절차를 직접 밟아야 했다. 교권보호단은 조사·법률 지원·상담·치유 업무를 통합하고, 전담관이 1:1로 초기 상담부터 사후 관리까지 지원한다. 중대 사안이 교권보호 119 콜센터나 교원단체를 통해 접수되면 변호사·장학사·상담사가 함께 현장에 출동한다.
+  - id: aju-0721
+    source_type: news
+    title: 사안 단위 조정 방식 (아주경제 7.21)
+    url: https://www.ajunews.com/view/20260721172724067
+    reliability: C
+    verified: false
+    text: 중대한 사안이 접수되면 상근 전담관(교육전문직) 1명을 주 담당자로 지정하고, 비상근 전담관 1~2명과 지역교권보호지원센터 담당자를 함께 배치한다. 기존 조직(센터)을 없애지 않고 사안 단위로 묶는 방식이다.
+  - id: seoul-0722
+    source_type: news
+    title: 도의원 문제 제기 (서울신문 7.22)
+    url: https://m.go.seoul.co.kr/news/2026/07/22/20260722500310
+    reliability: C
+    verified: false
+    text: 세부 운영 매뉴얼 없이 선발부터 진행됐고, 기존 교권보호지원센터와 업무 중복 위험이 있으며, 기존 센터 예산이 1억여 원 삭감됐다는 지적이 나왔다.
+  - id: anewsa-1008
+    source_type: news
+    title: 지원 사안 140건 이상 접수 (아시아뉴스통신 10.8)
+    url: https://m.anewsa.com/article_sub3.php?number=3209842
+    reliability: C
+    verified: false
+    text: 실무 투입 이후 10월 8일까지 지원 사안 140건 이상이 접수됐다. 사안 유형별 접수 현황과 처리 결과 자료, 지원 교원 만족도 평가가 필요하다는 요구가 있었고, 교육청은 지원 교원과 전담관 대상 운영성과 평가 방안을 검토 중이다. 전담관 대부분은 비상근이다.
+  - id: kyeongin-0810
+    source_type: news
+    title: 1호 사안 지정과 선발 확대 (경인일보 8.10)
+    url: https://www.kyeongin.com/article/1768780
+    reliability: C
+    verified: false
+    text: 50명 모집에 1,823명이 지원해 선발 인원을 300명으로 확대했다. 부천 소재 초등학교 교사가 학생 간 다툼을 중재한 뒤 학부모로부터 악성 민원과 소송을 당한 사건을 교육감이 1호 사안으로 지정하고 학부모를 형사 고발했다.
+
+  # ── 정책 흐름 ──
+  - id: moe-0122
+    source_type: policy
+    title: 교육부 「학교민원 대응 및 교육활동 보호 강화 방안」(2026.1.22)
+    url: https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=105198
+    reliability: A
+    verified: false
+    text: 중대한 교육활동 침해에 대한 엄정 대응, 교사 개인이 아닌 기관 중심의 민원 대응 체계 구축, 지역 단위 교육활동 보호 네트워크 강화를 주요 내용으로 한다.
+
+  # ── 비교 사례 ──
+  - id: incheon
+    source_type: news
+    title: 인천 교육활동보호담당관 운영 결과 (경인일보·경기일보·다음뉴스)
+    url: https://www.kyeongin.com/article/1708034
+    reliability: C
+    verified: false
+    text: 인천은 2024년 1월 교육감 직속 교육활동보호담당관을 설치해 교원치유지원센터·교육활동보호대응팀·법률지원팀을 통합했다. 월평균 법률 상담·자문이 25건에서 34건으로 늘었고, 위촉 변호사는 5명에서 33명으로 늘었다. 현재 장학관·변호사·상담사 등 20여 명이 상주한다.
+  - id: fr-ems
+    source_type: foreign_policy
+    title: 프랑스 국가교육청소년부 지침 MENE2409242C (EMS/EMS-N)
+    url: https://www.education.gouv.fr/bo/2024/Hebdo14/MENE2409242C
+    reliability: A
+    verified: false
+    text: 이동안전팀(EMS)은 안전 확보, 예방, 지원의 세 가지 임무를 가진다. 지역 인력만으로 대응하기 어려운 심각한 위기에는 국가 이동안전팀(EMS-N)이 24~48시간 이내에 파견된다.
+  - id: channela
+    source_type: news
+    title: 교권보호국 특수부대 파견 구상 논란 (채널A)
+    url: https://www.youtube.com/watch?v=qOUqoSl_8C8
+    reliability: C
+    verified: false
+    text: 특수부대 출신 교사를 파견해 현장을 제압하자는 구상에 대해, 법조계는 위압이나 물리력으로 학생을 통제하는 것은 법적 근거가 없고 형사처벌이나 손해배상 등 법적 분쟁을 부를 수 있다고 지적했다. 현장 교사들은 법적 면책 장치와 실질적 보호 제도가 필요하다고 강조했다.
+
+  # ── 이론 ──
+  - id: th-lawrence
+    source_type: theory
+    title: Lawrence & Lorsch (1967) 분화와 통합
+    reliability: B
+    verified: true
+    text: 효과적인 조직은 분화(전문화)와 통합(연결·조정)을 함께 갖춘다. 기존 교권보호 체계는 분화는 있었지만 통합이 부족했다.
+  - id: th-thompson
+    source_type: theory
+    title: Thompson (1967) 상호의존성과 조정
+    reliability: B
+    verified: true
+    text: 상호의존성은 집합적·순차적·교호적으로 나뉜다. 교호적 상호의존일수록 지속적 의사소통과 상호조정이 필요하다.
+  - id: th-perrow
+    source_type: theory
+    title: Perrow (1967) 조직기술
+    reliability: B
+    verified: true
+    text: 과업다양성과 분석가능성으로 일상적·장인·공학적·비일상적 기술을 구분한다. 예외가 많고 해결법이 불명확한 비일상적 과업일수록 전문가 판단과 협의가 중요하다.
+  - id: th-burns
+    source_type: theory
+    title: Burns & Stalker (1961) 기계적·유기적 조직
+    reliability: B
+    verified: true
+    text: 안정적 환경에는 명확한 분업·위계의 기계적 조직이, 불확실한 환경에는 유연한 협력의 유기적 조직이 적합하다.
+  - id: th-gulick
+    source_type: theory
+    title: Gulick (1937) 분업과 조정
+    reliability: B
+    verified: true
+    text: 분업은 전문화의 이점을 주지만 나눈 만큼 조정이 필요하며, 조정은 위계와 구조적 통합으로 이뤄진다.
+  - id: th-vandeven
+    source_type: theory
+    title: Van de Ven 외 (2013) 적합성
+    reliability: B
+    verified: true
+    text: 조직 성과는 환경과 구조의 적합성(fit)에 달려 있다.

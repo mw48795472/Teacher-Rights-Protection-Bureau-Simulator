@@ -1,0 +1,15 @@
+name: C. 인천형 상주 통합
+short: C 인천형
+kind: integrated
+description: 2024년 교육감 직속 교육활동보호담당관. 장학관·변호사·상담사 등 20여 명 상주, 위촉 변호사 33명.
+theory: 안정적 전담 인력(상근) 조건 비교 [경인일보, 다음뉴스]
+params:
+  regular_officers: 20
+  caseload_per_regular: 6
+  nonregular_officers: 40
+  nonregular_availability: 0.6   # 상주 인력 비중이 커서 응답성이 높다고 가정
+  center_staff: 6
+  linkage_procedure: true
+  manual: true
+  escalation: true
+  committee_interval_days: 30

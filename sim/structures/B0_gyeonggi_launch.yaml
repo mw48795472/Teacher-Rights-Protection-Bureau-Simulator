@@ -1,0 +1,15 @@
+name: B0. 교권보호단 출범 초기 (조례 시행 전)
+short: B0 출범 초기
+kind: integrated
+description: 2026.8.24 실무 투입 ~ 10.7 조례 시행 전. 위계와 사안팀은 있지만 매뉴얼과 연계절차가 아직 없다.
+theory: 위계(기계적) + 사안팀(유기적) 혼합 (Burns & Stalker), 공식화 이전 단계
+params:
+  regular_officers: 20     # 상근 전담관(교육전문직) 수 (가정: 공개 자료 없음)
+  caseload_per_regular: 6  # 상근 1명이 동시에 맡는 사안 수 (가정)
+  nonregular_officers: 280 # 300명 중 비상근 [경인일보 8.10, 아시아뉴스통신 10.8]
+  nonregular_availability: 0.25  # 비상근이 바로 응할 수 있는 비율 (가정)
+  center_staff: 5          # 센터 예산 1억여 원 삭감 반영 [서울신문 7.22]
+  linkage_procedure: false # 조례 제17조 연계절차
+  manual: false            # 조례 제25조 업무매뉴얼
+  escalation: true         # 조례 제6조 교육감 직속
+  committee_interval_days: 30
