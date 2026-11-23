@@ -4,6 +4,9 @@ import streamlit as st
 
 import plotly.graph_objects as go
 
+import fresh  # noqa: E402  새 배포 뒤 낡은 모듈을 먼저 다시 읽는다 (common·sim 을 불러오기 전에)
+
+fresh.ensure()
 from common import chart_style, freeze, llm_badge, retriever, schools_enriched, simulate, structures
 from geo.gyeonggi import OFFICES, hierarchy
 from sim import insights

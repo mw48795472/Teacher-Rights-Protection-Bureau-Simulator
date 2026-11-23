@@ -2,6 +2,9 @@ import pandas as pd
 import streamlit as st
 import yaml
 
+import fresh  # noqa: E402  새 배포 뒤 낡은 모듈을 먼저 다시 읽는다 (common·sim 을 불러오기 전에)
+
+fresh.ensure()
 from common import ROOT, llm_badge, neis_status, retriever, schools
 from rag.answer import answer
 

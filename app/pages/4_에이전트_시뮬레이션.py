@@ -3,6 +3,9 @@ import json
 import pandas as pd
 import streamlit as st
 
+import fresh  # noqa: E402  새 배포 뒤 낡은 모듈을 먼저 다시 읽는다 (common·sim 을 불러오기 전에)
+
+fresh.ensure()
 from common import llm_badge, retriever, scenarios
 from agents.llm import llm_enabled, model_name
 from agents.roles import STRUCTURES
