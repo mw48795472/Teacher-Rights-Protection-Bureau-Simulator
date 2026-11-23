@@ -117,3 +117,16 @@ def test_evidence_page_renders_with_sources_and_key_status(monkeypatch):
     at = AppTest.from_file(str(ROOT / "app" / "pages" / "3_근거_자료.py"), default_timeout=60).run()
     assert not at.exception
     assert any(e.label == "API 키 연결 상태" for e in at.expander)
+
+
+def test_evidence_example_question_fills_search(monkeypatch):
+    import sys
+    from streamlit.testing.v1 import AppTest
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.syspath_prepend(str(ROOT / "app"))
+    sys.modules.pop("common", None)
+    at = AppTest.from_file(str(ROOT / "app" / "pages" / "3_근거_자료.py"), default_timeout=60).run()
+    btn = next(b for b in at.button if b.label.startswith("지역교권보호위원회"))
+    btn.click().run()
+    assert not at.exception
+    assert at.text_input(key="evidence_q").value == btn.label
