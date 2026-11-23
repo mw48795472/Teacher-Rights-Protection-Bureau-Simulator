@@ -1,5 +1,7 @@
 # 교권보호국 시뮬레이터
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://teacher-rights-protection-bureau-simulator-nfs4pkldbqhb7ph6yjp.streamlit.app/)
+
 경기도교육청 교권보호단의 조직 개편을 조직이론(① 조직환경: 개방체계·상황이론, ② 분업과 조정)으로
 실험해 보는 발표 시연용 데모입니다. 같은 교권침해 사안 흐름을 여러 조직 구조에 넣고,
 교사가 지는 부담과 조직이 지는 조정 비용이 어떻게 달라지는지 비교합니다.
@@ -8,7 +10,7 @@
 
 ## 대시보드
 
-배포 주소: _아직 배포 전입니다. 배포 후 여기에 링크를 넣습니다._
+**👉 [대시보드 바로가기](https://teacher-rights-protection-bureau-simulator-nfs4pkldbqhb7ph6yjp.streamlit.app/)**
 
 ### Streamlit Community Cloud 배포
 1. [share.streamlit.io](https://share.streamlit.io)에 깃허브 계정으로 로그인
@@ -17,7 +19,6 @@
    ```toml
    ANTHROPIC_API_KEY = "sk-ant-..."
    ```
-4. 배포된 주소를 위 "배포 주소"에 적기
 
 배포 환경에서는 수집기를 돌리지 않으므로 시드 지식베이스(`config/seed_corpus.yaml`)로 동작합니다.
 원문 조문으로 판정하려면 로컬에서 수집한 결과를 시드에 반영해야 합니다.
