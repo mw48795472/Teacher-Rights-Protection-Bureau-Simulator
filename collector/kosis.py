@@ -64,7 +64,16 @@ def search(name: str, client=None) -> pd.DataFrame:
     return pd.DataFrame(rows)[cols] if rows else pd.DataFrame()
 
 
+SIDO_FULL = {"서울특별시": "서울", "부산광역시": "부산", "대구광역시": "대구", "인천광역시": "인천",
+             "광주광역시": "광주", "대전광역시": "대전", "울산광역시": "울산", "세종특별자치시": "세종",
+             "경기도": "경기", "강원도": "강원", "강원특별자치도": "강원", "충청북도": "충북", "충청남도": "충남",
+             "전라북도": "전북", "전북특별자치도": "전북", "전라남도": "전남", "경상북도": "경북", "경상남도": "경남",
+             "제주특별자치도": "제주", "제주도": "제주"}
+TOTAL = ("계", "합계", "전체", "소계", "총계")
+
+
 def sido_short(name: str) -> str | None:
+    """이름 앞부분으로 시도를 찾는다 ('서울특별시교육청' → '서울'). 시군구가 섞인 표에는 sido_exact 를 쓴다."""
     n = str(name).strip()
     for s in SIDO:
         if n.startswith(s) or n.startswith(s[0] + "라" + s[1:]) or n.startswith(s[0] + "청" + s[1:]) \
@@ -73,17 +82,37 @@ def sido_short(name: str) -> str | None:
     return None
 
 
+def sido_exact(name: str) -> str | None:
+    """이름이 시도와 정확히 같을 때만 (시군구 '부산진구'·'광주시'를 시도로 잡지 않게)."""
+    n = re.sub(r"\s+", "", str(name))
+    return SIDO_FULL.get(n) or (n if n in SIDO else None)
+
+
 def teachers_table(rows: list[dict], item: str | None = None) -> pd.DataFrame:
-    """statisticsData 응답 → 시도·연도·교원수 (시도 이름은 짧은 이름으로)."""
+    """statisticsData 응답 → 시도·연도·교원수 (시도 이름은 짧은 이름으로).
+    - 시군구 행은 버린다 (이름이 시도와 정확히 같은 행만).
+    - 항목(ITM_NM)이 여럿이면 item 이 들어간 항목만, 그중 '여'·'남'·'1인당'이 붙은 항목은 뺀다.
+    - 둘째 분류(C2_NM, 예: 성별·설립별)가 있으면 '계' 행만 쓴다.
+    - 같은 시도·연도에 행이 여럿 남으면 가장 큰 값(합계)을 쓴다."""
     df = pd.DataFrame(rows)
-    if df.empty:
+    if df.empty or not {"C1_NM", "PRD_DE", "DT"} <= set(df.columns):
         return pd.DataFrame(columns=["시도", "연도", "교원수"])
-    if item and "ITM_NM" in df:
-        df = df[df["ITM_NM"].astype(str).str.contains(item)]
-    df = df.assign(시도=df["C1_NM"].map(sido_short), 연도=pd.to_numeric(df["PRD_DE"].astype(str).str[:4]),
-                   교원수=pd.to_numeric(df["DT"], errors="coerce"))
-    df = df.dropna(subset=["시도", "교원수"])
-    return df.groupby(["시도", "연도"], as_index=False)["교원수"].sum()
+    if "ITM_NM" in df:
+        nm = df["ITM_NM"].astype(str)
+        keep = ~nm.str.contains(r"1인당|여교원|남교원|^여|^남|비율|%")
+        if item:
+            keep &= nm.str.contains(item)
+        if keep.any():
+            df = df[keep]
+    for c in ("C2_NM", "C3_NM"):
+        if c in df and df[c].astype(str).str.strip().isin(TOTAL).any():
+            df = df[df[c].astype(str).str.strip().isin(TOTAL)]
+    df = df.assign(시도=df["C1_NM"].map(sido_exact), 연도=pd.to_numeric(df["PRD_DE"].astype(str).str[:4], errors="coerce"),
+                   교원수=pd.to_numeric(df["DT"].astype(str).str.replace(",", ""), errors="coerce"))
+    df = df.dropna(subset=["시도", "연도", "교원수"])
+    out = df.groupby(["시도", "연도"], as_index=False)["교원수"].max()
+    out["연도"] = out["연도"].astype(int)
+    return out
 
 
 LAST_HITS: list[dict] = []   # 마지막 검색 결과 (진단용)
@@ -109,7 +138,7 @@ def candidate_tables(t: dict, client=None) -> list[dict]:
         hits += rows
         for r in rows:
             nm = str(r.get("TBL_NM", ""))
-            if "교원" in nm and any(k in nm for k in ("시도", "시·도", "시군구", "지역")) and r.get("TBL_ID") not in seen:
+            if "교원" in nm and "1인당" not in nm and any(k in nm for k in ("시도", "시·도", "시군구", "지역")) and r.get("TBL_ID") not in seen:
                 seen.add(r.get("TBL_ID"))
                 out.append(r)
     LAST_HITS = hits
@@ -128,25 +157,96 @@ def hits_summary(n: int = 8) -> str:
     return "; ".join(rows[:n])
 
 
-def fetch_teachers(cfg: dict | None = None, client=None) -> pd.DataFrame:
-    """시도별 교원 수. 결과 표의 attrs['table'] 에 쓴 통계표 이름·ID를 남긴다."""
-    cfg = cfg or (yaml.safe_load(CFG.read_text(encoding="utf-8")) if CFG.exists() else {})
-    t = (cfg or {}).get("teachers") or {}
-    cands = candidate_tables(t, client)
-    if not cands:
-        raise KosisError("시도별 교원 수 통계표를 찾지 못함 (config/kosis.yaml 에 tblId 기입 필요)")
-    for c in cands[:5]:
+def _param_sets(t: dict) -> list[dict]:
+    """표마다 받는 요청 변수가 달라 몇 가지를 차례로 시도한다.
+    기간을 start~end 로 주면 그 기간 자료가 없는 표는 오류를 내므로 '최근 N개 시점'도 시도한다."""
+    base = {"itmId": t.get("itmId", "ALL"), "objL1": "ALL", "prdSe": "Y"}
+    rng = {"startPrdDe": str(t.get("start", 2019)), "endPrdDe": str(t.get("end", 2025))}
+    recent = {"newEstPrdCnt": str(int(t.get("end", 2025)) - int(t.get("start", 2019)) + 1)}
+    return [{**base, **rng}, {**base, **recent}, {**base, "objL2": "ALL", **rng}, {**base, "objL2": "ALL", **recent}]
+
+
+def read_table(org: str, tbl: str, t: dict, client=None) -> tuple[pd.DataFrame, str]:
+    """통계표 하나 → (시도·연도·교원수, 실패 사유). 시도가 10곳 이상 나오면 성공."""
+    why = []
+    for ps in _param_sets(t):
         try:
-            rows = _get("statisticsData.do", client, orgId=c["ORG_ID"], tblId=c["TBL_ID"],
-                        itmId=t.get("itmId", "ALL"), objL1="ALL", objL2=t.get("objL2", "ALL"),
-                        prdSe="Y", startPrdDe=str(t.get("start", 2019)), endPrdDe=str(t.get("end", 2025)))
-        except KosisError:
+            rows = _get("statisticsData.do", client, orgId=org, tblId=tbl, **ps)
+        except KosisError as e:
+            why.append(str(e))
             continue
         df = teachers_table(rows, t.get("item"))
         if df["시도"].nunique() >= 10:
+            return df, ""
+        why.append(f"{len(rows)}행 중 시도 {df['시도'].nunique()}곳")
+    uniq = list(dict.fromkeys(why))
+    return pd.DataFrame(columns=["시도", "연도", "교원수"]), " / ".join(uniq[:3])
+
+
+def _find_level(level: dict, client=None) -> dict | None:
+    """학교급 표를 검색으로 찾는다: 이름이 검색어로 시작하고 시도 표시가 있는 표 (기관 101 e-지방지표 우선)."""
+    global LAST_HITS
+    q = level.get("search") or f"{level.get('name', '')} 교원수"
+    try:
+        rows = _get("statisticsSearch.do", client, searchNm=q)
+    except KosisError:
+        return None
+    LAST_HITS += rows
+    ok = [r for r in rows if str(r.get("TBL_NM", "")).replace(" ", "").startswith(q.replace(" ", ""))
+          and "1인당" not in str(r.get("TBL_NM", "")) and "시도" in str(r.get("TBL_NM", ""))]
+    ok.sort(key=lambda r: str(r.get("ORG_ID")) != str(level.get("orgId", "101")))
+    return ok[0] if ok else None
+
+
+def fetch_levels(t: dict, client=None) -> pd.DataFrame:
+    """학교급별 표(초·중·고 …)를 각각 읽어 시도·연도별로 더한다.
+    결과 열: 시도, 연도, 학교급별 교원 수 열, 교원수(합계). 모든 학교급이 있는 연도만 남긴다.
+    attrs['table'] 에 쓴 표, attrs['missing'] 에 못 읽은 학교급을 남긴다."""
+    global LAST_HITS
+    LAST_HITS = []
+    parts, used, missing = [], [], []
+    for lv in t["levels"]:
+        name = lv.get("name", "")
+        c = {"ORG_ID": str(lv.get("orgId", "101")), "TBL_ID": lv["tblId"], "TBL_NM": name} if lv.get("tblId") \
+            else _find_level(lv, client)
+        if not c:
+            missing.append(f"{name}(표 못 찾음)")
+            continue
+        df, why = read_table(c["ORG_ID"], c["TBL_ID"], t, client)
+        if df.empty:
+            missing.append(f"{name}({c['ORG_ID']}/{c['TBL_ID']}: {why})")
+            continue
+        parts.append(df.rename(columns={"교원수": name}).set_index(["시도", "연도"]))
+        used.append(f"{name} {c['ORG_ID']}/{c['TBL_ID']}")
+    if not parts:
+        raise KosisError("학교급별 교원 수 표를 읽지 못함: " + "; ".join(missing))
+    wide = pd.concat(parts, axis=1).dropna().reset_index()
+    names = [p.columns[0] for p in parts]
+    wide["교원수"] = wide[names].sum(axis=1)
+    wide[names + ["교원수"]] = wide[names + ["교원수"]].astype(int)
+    wide.attrs["table"] = "KOSIS " + ", ".join(used)
+    wide.attrs["missing"] = missing
+    return wide
+
+
+def fetch_teachers(cfg: dict | None = None, client=None) -> pd.DataFrame:
+    """시도별 교원 수. config 의 levels(학교급별 표)가 있으면 그것을 더하고, 없으면 표 하나를 찾아 읽는다.
+    결과 표의 attrs['table'] 에 쓴 통계표 이름·ID를 남긴다."""
+    cfg = cfg or (yaml.safe_load(CFG.read_text(encoding="utf-8")) if CFG.exists() else {})
+    t = (cfg or {}).get("teachers") or {}
+    if t.get("levels"):
+        return fetch_levels(t, client)
+    cands = candidate_tables(t, client)
+    if not cands:
+        raise KosisError("시도별 교원 수 통계표를 찾지 못함 (config/kosis.yaml 에 tblId 기입 필요)")
+    why = []
+    for c in cands[:5]:
+        df, w = read_table(c["ORG_ID"], c["TBL_ID"], t, client)
+        if not df.empty:
             df.attrs["table"] = f"{c.get('TBL_NM', '')} ({c['ORG_ID']}/{c['TBL_ID']})"
             return df
-    raise KosisError("후보 통계표에서 시도별 교원 수를 읽지 못함: " + ", ".join(str(c.get("TBL_ID")) for c in cands[:5]))
+        why.append(f"{c.get('TBL_ID')}: {w}")
+    raise KosisError("후보 통계표에서 시도별 교원 수를 읽지 못함: " + "; ".join(why))
 
 
 def status() -> dict:
@@ -158,7 +258,9 @@ def status() -> dict:
     except KosisError as e:
         found = hits_summary()
         return {"ok": False, "reason": str(e) + (f" · 검색된 표: {found}" if found else " · 검색 결과 없음")}
-    return {"ok": True, "reason": f"{len(df)}행", "table": df.attrs.get("table", "")}
+    miss = df.attrs.get("missing") or []
+    return {"ok": True, "reason": f"{len(df)}행" + (f" · 빠진 학교급: {'; '.join(miss)}" if miss else ""),
+            "table": df.attrs.get("table", "")}
 
 
 def main(argv=None) -> int:
