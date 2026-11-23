@@ -191,3 +191,18 @@ def data_sources_table() -> pd.DataFrame:
     cols = {"group": "구분", "provider": "제공기관", "name": "데이터", "date": "기준일", "format": "형식",
             "key": "키", "used_in": "쓰이는 곳", "url": "링크"}
     return pd.DataFrame(rows)[list(cols)].rename(columns=cols)
+
+
+def committee_by_sido() -> pd.DataFrame:
+    """시도별 교보위 심의 건수 (2024.3.28.~6.30. 17개 시도, 2024년 전체 일부 시도). 보도 값."""
+    c = load().get("committee_by_sido") or {}
+    q, y = c.get("q2024_regional") or {}, c.get("y2024") or {}
+    rows = [{"시도": k, "2024.3.28~6.30": v, "2024년": (y.get("counts") or {}).get(k)}
+            for k, v in (q.get("counts") or {}).items()]
+    return pd.DataFrame(rows).sort_values("2024.3.28~6.30", ascending=False, ignore_index=True)
+
+
+def gyeonggi_committee_per_day() -> float | None:
+    """경기 교보위 심의 건수의 하루 평균 (2024년 전체 기준). 시뮬레이터 유입량(하루 약 3건)과 비교용."""
+    y = ((load().get("committee_by_sido") or {}).get("y2024") or {}).get("counts") or {}
+    return y["경기"] / 365 if "경기" in y else None

@@ -25,6 +25,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import yaml
@@ -258,8 +259,29 @@ def _read_jsonl(path: Path) -> list[Document]:
     return [Document.from_dict(json.loads(l)) for l in path.read_text(encoding="utf-8").splitlines() if l]
 
 
-def load_corpus(path: Path = OUT, live_bills: bool = True) -> list[Document]:
+LAW_CACHE = ROOT / "data" / "processed" / "law_cache.jsonl"
+LAW_CACHE_TTL = 7 * 86400
+LAW_TYPES = {"law", "ordinance", "admin_rule", "precedent"}
+
+
+def cached_law_docs(path: Path = LAW_CACHE, ttl: int = LAW_CACHE_TTL, log=lambda *_: None) -> list[Document]:
+    """배포 앱용: LAW_OC 가 있으면 법령·조례·행정규칙·판례 원문을 받아 일주일 캐시한다. 실패하면 이전 캐시."""
+    old = _read_jsonl(path) if path.exists() else []
+    if not os.environ.get("LAW_OC") or (path.exists() and time.time() - path.stat().st_mtime < ttl):
+        return old
+    try:
+        docs = _collect_law_api(load_sources(), NEEDS_LAW_OC, log)
+    except Exception:  # 앱 시작을 막지 않는다
+        return old
+    if docs:
+        write(docs, path)
+        return docs
+    return old
+
+
+def load_corpus(path: Path = OUT, live_bills: bool = True, live_laws: bool = True) -> list[Document]:
     """로컬 수집 결과 → 없으면 시드 + 커밋된 스냅샷(배포 환경) → 없으면 시드.
+    배포 환경에서 원문 법령이 없고 LAW_OC 가 있으면 법령 원문을 받아(일주일 캐시) 팀 요약을 대체하고,
     법률안이 하나도 없고 ASSEMBLY_KEY 가 있으면 국회 법률안을 받아(하루 캐시) 더한다."""
     if path.exists():
         docs = _read_jsonl(path)
@@ -267,6 +289,11 @@ def load_corpus(path: Path = OUT, live_bills: bool = True) -> list[Document]:
         docs = merge(load_seed(), _read_jsonl(SNAPSHOT))
     else:
         docs = load_seed()
+    if live_laws and path == OUT and not any(d.source_type in LAW_TYPES and d.verified for d in docs):
+        laws = cached_law_docs()
+        if laws:
+            have = {d.id for d in laws}
+            docs = merge([d for d in docs if d.id not in have], laws)
     if live_bills and path == OUT and not any(d.source_type == "bill" for d in docs):
         from .assembly import cached_bills
         docs += cached_bills(load_sources().get("bills"))
