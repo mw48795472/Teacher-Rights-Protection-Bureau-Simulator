@@ -26,6 +26,9 @@ CFG = ROOT / "config" / "edufin.yaml"
 OUT = ROOT / "data" / "measured" / "edufin"
 
 
+LAST_HEAD = ""   # 마지막 응답 앞부분 (키는 가림). 행이 0건일 때 원인을 보여 주려고 남긴다
+
+
 class EdufinError(RuntimeError):
     pass
 
@@ -124,6 +127,8 @@ def fetch(service: str, year: int | str, key: str | None = None, page_size: int 
             except httpx.HTTPError as e:  # URL(키 포함)이 메시지에 섞이지 않게
                 code = f" HTTP {e.response.status_code}" if isinstance(e, httpx.HTTPStatusError) else ""
                 raise EdufinError(f"{service} 요청 실패 ({type(e).__name__}{code})") from None
+            global LAST_HEAD
+            LAST_HEAD = " ".join(r.text.replace(key, "***").split())[:200]
             payload = parse_body(r.text, key)
             err = _error(payload)
             if err:
@@ -160,6 +165,8 @@ def check(cfg: dict | None = None, client=None) -> dict:
                    client=client)
     except EdufinError as e:
         return {"ok": False, "reason": str(e)}
+    if df.empty:
+        return {"ok": False, "reason": f"응답에 행이 없음 · 서버 응답 앞부분: {LAST_HEAD or '(빈 응답)'}"}
     if len(df) <= 5:
         return {"ok": False, "reason": f"{len(df)}건만 받음 (샘플 키 한도일 수 있음)", "columns": list(df.columns)}
     return {"ok": True, "reason": "정상", "rows": len(df), "columns": list(df.columns)}

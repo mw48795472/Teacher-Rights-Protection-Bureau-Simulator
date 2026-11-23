@@ -2,11 +2,13 @@
 # reliability: A=공식자료, B=학술, C=언론, D=참고(인용 금지)
 # verified: false 인 항목은 팀 요약이며 원문 대조가 필요합니다.
 # 실제 조문 원문은 `python -m collector.pipeline` 실행 시 국가법령정보센터 API로 받아 덮어씁니다.
+# 배포 앱은 키가 없어도 국가법령정보센터 본문 화면(ordinInfoR.do)에서 조례 원문을 받아 아래 요약을 대체합니다.
+# 조례 조문 제목은 2026-11-23 국가법령정보센터 본문과 대조해 고쳤습니다(경기도조례 제8957호, 2026.10.7. 시행).
 documents:
   # ── 경기도교육청 교권보호전담관 운영 조례 (2026.10.7 시행) ──
   - id: ord-06
     source_type: ordinance
-    title: 경기도교육청 교권보호전담관 운영 조례 제6조 (교권보호단 설치)
+    title: 경기도교육청 교권보호전담관 운영 조례 제6조 (교권보호단의 설치 및 기능)
     article_no: "제6조"
     url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
     reliability: A
@@ -14,7 +16,7 @@ documents:
     text: 교육감 직속으로 교권보호단을 둔다. 교육감이 단장을 맡아 교권보호 업무를 총괄한다.
   - id: ord-09
     source_type: ordinance
-    title: 조례 제9조 (전담관의 구성)
+    title: 조례 제9조 (교권보호전담관)
     article_no: "제9조"
     url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
     reliability: A
@@ -22,7 +24,7 @@ documents:
     text: 전담관은 교육 및 교육행정 분야 전문가, 변호사 등 법률 전문가, 상담·심리·정신건강 분야 전문가, 경찰 등 관계기관 업무 경험자, 갈등조정 및 분쟁조정 전문가, 학교공동체 회복 관련 경험자로 구성할 수 있다.
   - id: ord-12
     source_type: ordinance
-    title: 조례 제12조 (전담관의 업무)
+    title: 조례 제12조 (교권보호전담관의 업무)
     article_no: "제12조"
     url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
     reliability: A
@@ -30,7 +32,7 @@ documents:
     text: 전담관은 사안 접수와 초기 상담, 지원 필요성 확인, 지원계획 수립, 사안 처리 절차와 권리 안내, 법률·행정·상담·심리·치유 지원 전문기관 연계, 교원의 회복과 교육활동 복귀를 위한 사후 관리, 사례 분석과 제도 개선 의견 제시 업무를 수행한다.
   - id: ord-13
     source_type: ordinance
-    title: 조례 제13조·제14조 (전담관 배정과 공동지원)
+    title: 조례 제13조 (지원의 개시 및 배정)
     article_no: "제13조"
     url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
     reliability: A
@@ -38,7 +40,7 @@ documents:
     text: 사안의 내용, 긴급성, 전문성, 지역적 여건을 고려해 전담관을 배정한다. 중대한 사안이나 전문적인 지원이 필요한 경우 복수의 전담관 또는 관련 전문가가 공동으로 지원할 수 있다.
   - id: ord-15
     source_type: ordinance
-    title: 조례 제15조 (전담관 권한의 한계)
+    title: 조례 제15조 (사실관계 확인 및 권한의 한계)
     article_no: "제15조"
     url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
     reliability: A
@@ -46,7 +48,7 @@ documents:
     text: 전담관에게는 법령상 조사권·수사권이나 심의·의결권이 없으며, 교육활동 침해 여부나 범죄 성립 여부에 대한 최종 판단을 대신할 수 없다. 침해 여부 심의는 지역교권보호위원회가, 범죄 혐의 수사는 수사기관이 담당한다.
   - id: ord-17
     source_type: ordinance
-    title: 조례 제17조 (기존 지원체계와의 협력)
+    title: 조례 제17조 (관계 기관과의 협력)
     article_no: "제17조"
     url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
     reliability: A
@@ -54,12 +56,12 @@ documents:
     text: 기존 교육활동 보호 지원체계와 전담관의 업무가 중복되지 않도록 업무 범위와 연계절차를 정할 수 있다.
   - id: ord-23
     source_type: ordinance
-    title: 조례 제23조 (성과 평가)
+    title: 조례 제23조 (활동실적 관리 및 평가)
     article_no: "제23조"
     url: https://www.law.go.kr/ordinInfoP.do?ordinSeq=2176205
     reliability: A
     verified: false
-    text: 교권보호단과 전담관 운영의 성과를 평가하고 그 결과를 운영 개선에 반영한다.
+    text: 교권보호단과 전담관의 활동실적을 관리하고 성과를 평가하며, 그 결과를 다음 연도 운영계획에 반영한다. 활동실적은 매년 경기도의회 소관 상임위원회에 보고한다.
   - id: ord-25
     source_type: ordinance
     title: 조례 제25조 (업무매뉴얼)
