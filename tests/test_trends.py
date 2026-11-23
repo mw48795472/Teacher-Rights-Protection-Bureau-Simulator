@@ -99,6 +99,8 @@ def test_kosis_finds_table_by_search(monkeypatch):
         if path == "statisticsSearch.do":
             return [{"ORG_ID": "334", "TBL_ID": "DT_A", "TBL_NM": "시도별 교원수"},
                     {"ORG_ID": "101", "TBL_ID": "DT_B", "TBL_NM": "시도별 교원수"}]
+        if p.get("method") == "getMeta":
+            return []
         assert p["tblId"] == "DT_A"
         return [{"C1_NM": n, "PRD_DE": "2024", "DT": "100", "ITM_NM": "교원수"} for n in kosis.SIDO]
     monkeypatch.setattr(kosis, "_get", fake)
@@ -193,7 +195,8 @@ def test_kosis_url_and_relaxed_search(monkeypatch):
 
 
 def test_kosis_levels_sum_skip_sigungu_and_retry(monkeypatch):
-    """e-지방지표 모양: 시도 아래 시군구 행이 섞이고, 기간 지정은 오류 → 최근 N개 시점으로 다시 받는다."""
+    """e-지방지표 모양: 시도 아래 시군구 행이 섞인 초등 표, 시도가 둘째 분류인 중학교 개황, 검색으로 찾는 고등학교 표.
+    자료는 Param/statisticsParameterData.do 로, 분류 단계 수는 getMeta 로 받는다."""
     from collector import kosis
     monkeypatch.setenv("KOSIS_KEY", "x")
     full = list({v: k for k, v in kosis.SIDO_FULL.items()}.values())
@@ -202,23 +205,45 @@ def test_kosis_levels_sum_skip_sigungu_and_retry(monkeypatch):
     def fake(path, client=None, **p):
         if path == "statisticsSearch.do":
             q = p["searchNm"]
-            return [{"ORG_ID": "101", "TBL_ID": "DT_" + q[:1], "TBL_NM": f"{q}(시도/시/군/구)"},
-                    {"ORG_ID": "101", "TBL_ID": "DT_R", "TBL_NM": "교원 1인당 학생수(시도/시/군/구)"}]
+            return [{"ORG_ID": "101", "TBL_ID": "DT_HIGH", "TBL_NM": "고등학교 교원수(시도/시/군/구)"},
+                    {"ORG_ID": "101", "TBL_ID": "DT_R", "TBL_NM": "교원 1인당 학생수(시도/시/군/구)"}] if q.startswith("고") else []
+        if p.get("method") == "getMeta":
+            assert path == kosis.META
+            n = 2 if p["tblId"] == "DT_1963003_003" else 1
+            return [{"OBJ_ID": "ITEM", "ITM_ID": "T1", "ITM_NM": "교원수"}] + \
+                   [{"OBJ_ID": f"A{i}", "ITM_ID": "00", "ITM_NM": "계"} for i in range(n)]
+        assert path == kosis.DATA
         calls.append(p)
-        if "startPrdDe" in p:
-            raise kosis.KosisError("21: 요청변수값이 잘못되었습니다")
-        base = {"DT_1YL21251": 100, "DT_중": 50, "DT_고": 40}[p["tblId"]]
-        rows = [{"C1": "11", "C1_NM": n, "PRD_DE": "2024", "DT": str(base), "ITM_NM": "교원수"} for n in full]
-        rows += [{"C1": "21050", "C1_NM": "부산진구", "PRD_DE": "2024", "DT": "9999", "ITM_NM": "교원수"},
-                 {"C1": "31260", "C1_NM": "광주시", "PRD_DE": "2024", "DT": "9999", "ITM_NM": "교원수"},
-                 {"C1": "11", "C1_NM": "서울특별시", "PRD_DE": "2024", "DT": "7", "ITM_NM": "여교원수"}]
+        if p["tblId"] == "DT_1963003_003":   # 중학교 개황: C1 설립, C2 시도
+            assert p.get("objL2") == "ALL"
+            return [{"C1_NM": est, "C2_NM": n, "PRD_DE": "2024", "DT": "50" if est == "계" else "20", "ITM_NM": "교원수"}
+                    for n in full for est in ("계", "국립", "공립")]
+        base = {"DT_1YL21251": 100, "DT_HIGH": 40}[p["tblId"]]
+        rows = [{"C1_NM": n, "PRD_DE": "2024", "DT": str(base), "ITM_NM": "교원수"} for n in full]
+        rows += [{"C1_NM": "부산진구", "PRD_DE": "2024", "DT": "9999", "ITM_NM": "교원수"},
+                 {"C1_NM": "광주시", "PRD_DE": "2024", "DT": "9999", "ITM_NM": "교원수"},
+                 {"C1_NM": "서울특별시", "PRD_DE": "2024", "DT": "7", "ITM_NM": "여교원수"}]
         return rows
     monkeypatch.setattr(kosis, "_get", fake)
     import yaml
     cfg = yaml.safe_load(kosis.CFG.read_text(encoding="utf-8"))
     df = kosis.fetch_teachers(cfg).set_index("시도")
     assert len(df) == 17 and (df["교원수"] == 190).all()
-    assert df.loc["부산", "초등학교"] == 100 and df.loc["광주", "교원수"] == 190
-    assert "DT_1YL21251" in df.attrs["table"] and not df.attrs["missing"]
-    assert any("newEstPrdCnt" in c for c in calls)
+    assert df.loc["부산", "초등학교"] == 100 and df.loc["광주", "중학교"] == 50
+    assert "DT_1YL21251" in df.attrs["table"] and "DT_HIGH" in df.attrs["table"] and not df.attrs["missing"]
+    assert all("newEstPrdCnt" in c or "startPrdDe" in c for c in calls)
     assert kosis.sido_exact("부산진구") is None and kosis.sido_exact("강원특별자치도") == "강원"
+
+
+def test_kosis_level_failure_reason(monkeypatch):
+    from collector import kosis
+    monkeypatch.setenv("KOSIS_KEY", "x")
+
+    def fake(path, client=None, **p):
+        if path == kosis.DATA:
+            raise kosis.KosisError("20: 필수요청변수값이 누락되었습니다.")
+        return []
+    monkeypatch.setattr(kosis, "_get", fake)
+    import pytest
+    with pytest.raises(kosis.KosisError, match="초등학교\\(101/DT_A: 20"):
+        kosis.fetch_teachers({"teachers": {"levels": [{"name": "초등학교", "tables": [{"orgId": "101", "tblId": "DT_A"}]}]}})
