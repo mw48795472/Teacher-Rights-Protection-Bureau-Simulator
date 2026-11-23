@@ -70,18 +70,21 @@ def offices() -> tuple:
 
 
 def simulate(key: str, days: int, rate: float, seed: int, surge_day, surge_mult: float,
-             overrides: tuple = (), scenario: tuple = (), capacity: int = 6) -> tuple[pd.DataFrame, dict]:
+             overrides: tuple = (), scenario: tuple = (), capacity: int = 6,
+             case_source: str = "assumed") -> tuple[pd.DataFrame, dict]:
     """(사안별 결과표, 시나리오 사안의 로그 {label: trace}).
     사안은 교육지원청별 교원 수(없으면 학교 수) 비중대로 각 관할에서 생기고, 그 교육지원청 위원회로 간다."""
-    return _simulate(key, days, rate, seed, surge_day, surge_mult, overrides, scenario, offices(), capacity)
+    return _simulate(key, days, rate, seed, surge_day, surge_mult, overrides, scenario, offices(), capacity,
+                     case_source)
 
 
 @st.cache_data(show_spinner=False)
-def _simulate(key, days, rate, seed, surge_day, surge_mult, overrides, scenario, offices_, capacity):
+def _simulate(key, days, rate, seed, surge_day, surge_mult, overrides, scenario, offices_, capacity,
+              case_source="assumed"):
     s = structures()[key]
     cfg = SimConfig(s, days=days, arrivals_per_day=rate, seed=seed, surge_day=surge_day,
                     surge_multiplier=surge_mult, overrides=dict(overrides),
-                    offices=dict(offices_), committee_capacity=capacity)
+                    offices=dict(offices_), committee_capacity=capacity, case_source=case_source)
     cases = run(cfg, retriever(), [(_thaw(spec), day) for spec, day in scenario])
     traces = {c.label: c.trace for c in cases if c.label}
     return to_frame(cases, key), traces

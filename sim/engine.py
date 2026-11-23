@@ -22,6 +22,7 @@ import simpy
 import yaml
 
 from .cases import Case, random_case, scenario_case
+from .empirical import random_case as empirical_case
 
 HOURS_PER_DAY = 8
 ROOT = Path(__file__).resolve().parent
@@ -87,6 +88,7 @@ class SimConfig:
     # 지도 모드: 교육지원청별 사안 비중 {이름: 가중치}. 주어지면 위원회가 교육지원청마다 따로 열린다.
     offices: dict | None = None
     committee_capacity: int = 6         # 위원회 1회 심의 건수 (가정)
+    case_source: str = "assumed"        # 사안 생성: assumed(팀 가정 유형) | measured(교보위 실측, sim/empirical.py)
 
     @property
     def params(self) -> dict:
@@ -178,6 +180,8 @@ class Simulation:
 
     def needs_committee(self, c: Case) -> bool:
         # 민·형사 소송 사안은 법원 절차로 가고, 시나리오처럼 악성민원에 소송이 겹친 사안은 위원회도 연다
+        if c.committee_route is not None:
+            return c.committee_route
         return c.severity >= 2 and not c.type.startswith(("민·형사 소송", "단순 상담"))
 
     # ── 위원회 절차 (길라잡이 서식 1~15) ──
@@ -244,7 +248,8 @@ class Simulation:
             yield self.env.timeout(self.arr_rng.expovariate(rate / HOURS_PER_DAY))
             if self.env.now >= end:
                 return
-            self.start(random_case(self.arr_rng, self.env.now, next(self._ids)))
+            make = empirical_case if self.cfg.case_source == "measured" else random_case
+            self.start(make(self.arr_rng, self.env.now, next(self._ids)))
 
     def start(self, case: Case):
         if self.office_names and not case.office:
