@@ -61,6 +61,7 @@ streamlit run app/Home.py
 |---|---|---|
 | `LAW_OC` | 국가법령정보센터 Open API 인증키 ([open.law.go.kr](https://open.law.go.kr) 무료 신청). 조례·교권5법 원문을 조문 단위로 수집 | 팀 문서의 조문 요약(“팀 요약” 표시)으로 동작 |
 | `ANTHROPIC_API_KEY` | Claude가 시뮬레이션 결과를 이론·조문 근거로 설명, 사안 로그를 이야기로 풀기, 근거 Q&A 답변 | 규칙 기반 요약과 검색 발췌로 동작 |
+| `GOOGLE_TRANSLATE_API_KEY` | Google Cloud Translation API 키. 사이드바 '언어 / Language'에서 English를 고르면 화면 문장을 영어로 번역 | 한국어로만 표시 |
 | `ANTHROPIC_MODEL` | 사용할 모델 (기본 `claude-opus-5-5`) | |
 
 `.env`는 `.gitignore`에 있어 커밋되지 않습니다.
