@@ -69,7 +69,7 @@ hypotheses:
     theory: Thompson · Perrow
     concept: "②"
     claim: 필요한 지원이 여럿 얽힌(교호적·비일상적) 사안일수록 통합 구조의 효과가 커진다.
-    compare: 사안 유형별 A와 B의 종결 기간 차이
+    compare: 사안 유형별 A와 B의 처리 기간(위원회 대기 제외) 차이, 사안별 짝 비교
     page: 시뮬레이션 (이론별 분석)
   - id: H3
     theory: Burns & Stalker

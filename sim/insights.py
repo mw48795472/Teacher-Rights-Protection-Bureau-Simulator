@@ -152,3 +152,45 @@ def agent_runs(metrics: dict[str, dict]) -> list[str]:
                    "(직접 조사·판정, 위압적 제지)을 하려 하면 컴플라이언스가 차단하거나, 권한 안의 부분만 조건부로 "
                    "허용하고 나머지는 권한 있는 기관에 넘기게 합니다.")
     return out
+
+
+def theory(p: pd.DataFrame, reg: pd.DataFrame, base: str, target: str, label: str, unit: str = "") -> list[str]:
+    """이론별 분석(H2) 해설. p는 typeffects.paired() 결과(diff = 기준 - 비교), reg는 regression() 결과."""
+    from .typeffects import gap_by
+    if p.empty:
+        return []
+    out = []
+    g = gap_by(p, "n_needs").set_index("n_needs")
+    lo, hi = g.index.min(), g.index.max()
+    out.append(f"**사안별 짝 비교**: {target}이 {base}보다 {label}을(를) 사안당 평균 {p['diff'].mean():.1f}{unit} "
+               f"줄였습니다 (양수 = 줄임). 지원이 {lo}개인 사안 {g.at[lo, 'mean']:.1f}{unit} (n={g.at[lo, 'n']}) → "
+               f"{hi}개인 사안 {g.at[hi, 'mean']:.1f}{unit} (n={g.at[hi, 'n']}).")
+    r = reg.set_index("항") if not reg.empty else pd.DataFrame()
+
+    def coef(term: str) -> str:
+        if term not in r.index:
+            return ""
+        b, t = r.at[term, "계수"], r.at[term, "t"]
+        sig = "뚜렷함" if pd.notna(t) and abs(t) >= 2 else "불확실함"
+        return f"{b:+.2f}{unit} (t={t:.1f}, {sig})"
+
+    if "n_needs" in r.index:
+        out.append(f"**Thompson (상호의존)**: 분석가능성·위원회·심각도가 같을 때 지원이 1개 늘면 구조 차이가 "
+                   f"{coef('n_needs')} 달라집니다. 양수이고 뚜렷하면 얽힌 사안일수록 통합 구조가 더 많이 줄인다는 뜻입니다.")
+    if "low_analyz" in r.index:
+        out.append(f"**Perrow (분석가능성)**: 지원 개수가 같을 때 해결 절차가 불명확한 사안의 구조 차이는 "
+                   f"{coef('low_analyz')} 다릅니다. 이 효과는 '분산 구조에서는 교사가 앞 기관에 되돌아가고, 통합 "
+                   "구조에서는 사례 회의로 흡수한다'는 가정에서 나옵니다.")
+    if "committee" in r.index:
+        out.append(f"**위원회 심의(교란 변수)**: 위원회를 거친 사안의 구조 차이는 {coef('committee')} 다릅니다. "
+                   "지표가 '종결까지'면 이 항이 크게 나오는데, 사안의 복잡성이 아니라 위원회 개최 간격의 차이입니다.")
+    b1 = r.at["n_needs", "계수"] if "n_needs" in r.index else 0
+    t1 = r.at["n_needs", "t"] if "n_needs" in r.index else 0
+    if b1 > 0 and pd.notna(t1) and t1 >= 2:
+        out.append("**H2 판정 (이 설정)**: 지지. 다른 조건을 통제해도 지원이 많을수록 통합 구조의 이점이 커집니다.")
+    elif b1 > 0:
+        out.append("**H2 판정 (이 설정)**: 방향은 맞지만 사안 수가 적어 불확실합니다. 기간을 늘리거나 하루 사안 수를 "
+                   "올려 다시 보세요.")
+    else:
+        out.append("**H2 판정 (이 설정)**: 지지 안 됨. 이 지표에서는 지원 개수가 늘어도 구조 차이가 커지지 않습니다.")
+    return out

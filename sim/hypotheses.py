@@ -23,14 +23,23 @@ def h1(a: pd.DataFrame, b: pd.DataFrame) -> tuple[str, str]:
 
 
 def h2(a: pd.DataFrame, b: pd.DataFrame) -> tuple[str, str]:
-    ga = a.groupby("interdependence")["closure_days"].mean()
-    gb = b.groupby("interdependence")["closure_days"].mean()
+    """위원회 대기를 뺀 처리 기간으로 본다. 기본 가정에서 지원 1~2개 사안은 위원회로 가지 않아,
+    종결 기간을 쓰면 위원회 개최 간격(A 60일, B 30일) 차이가 교호적 사안에만 얹혀 효과가 부풀려진다."""
+    col = "process_days" if "process_days" in a and "process_days" in b else "closure_days"
+    ga = a.groupby("interdependence")[col].mean()
+    gb = b.groupby("interdependence")[col].mean()
     gap = (ga - gb).dropna()
     if not {"교호적", "집합적"} <= set(gap.index):
         return PARTIAL, "비교할 사안 유형이 부족합니다."
     hi, lo = gap["교호적"], gap["집합적"]
     v = SUPPORT if hi > lo and hi > 0 else PARTIAL if hi > 0 else NOT
-    return v, f"A와 B의 종결 기간 차이: 교호적 사안 {hi:.1f}일, 집합적 사안 {lo:.1f}일"
+    ev = f"A와 B의 처리 기간(위원회 대기 제외) 차이: 교호적 사안 {hi:.1f}일, 집합적 사안 {lo:.1f}일"
+    if col == "process_days":
+        tot = (a.groupby("interdependence")["closure_days"].mean() - b.groupby("interdependence")["closure_days"].mean())
+        t = tot.get("교호적", float("nan"))
+        if pd.notna(t) and t > hi:
+            ev += f" (위원회 대기를 포함하면 교호적 {t:.1f}일이며, 그중 {(t - hi) / t * 100:.0f}%는 위원회 개최 간격 차이)"
+    return v, ev
 
 
 def surge_ratio(df: pd.DataFrame, day: int, days: int = 7) -> float:

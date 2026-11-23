@@ -52,6 +52,16 @@ CITE_QUERIES = {
     "decision": "조치 의결서 조치 결정 통지서",
 }
 
+# Perrow 분석가능성: 해결 절차가 불명확한(분석가능성 낮은) 사안은 전문가가 답을 찾는 데 더 오래 걸리고,
+# 앞 기관의 판단이 다음 기관에서 맞지 않아 다시 맞춰야 하는 일이 생긴다 (가정).
+# - 처리 시간은 구조와 무관하게 NON_ANALYZABLE_FACTOR 배.
+# - 분산 구조: 기관을 옮길 때마다 REWORK_PROB 확률로 교사가 앞 기관에 돌아가 판단을 다시 받아 온다.
+# - 통합 구조: 주 담당이 사례 회의를 한 번 열어 예외를 팀 안에서 흡수한다 (조정 메시지가 늘어난다).
+# 즉 '분석가능성이 낮을수록 통합 장치가 더 큰 차이를 만든다'는 Perrow의 주장을 메커니즘 가정으로 넣은 것이며,
+# 결과는 이 가정의 크기에 달려 있다.
+NON_ANALYZABLE_FACTOR = 1.5
+REWORK_PROB = 0.4
+
 # 길라잡이 서식 순서대로 본 위원회 절차 (시간·확률은 가정)
 WITNESS_PROB = 0.6        # 참고인 진술이 필요한 사안 비율
 MEDIATION_PROB = 0.3      # 갈등조정이 필요한 사안 중 분쟁조정을 신청하는 비율
@@ -135,7 +145,9 @@ class Simulation:
                           for s, f in NONREGULAR_MIX.items()}
 
     # ── 공통 ──
-    def work(self, service: str, factor: float = 1.0) -> float:
+    def work(self, service: str, factor: float = 1.0, case: Case | None = None) -> float:
+        if case is not None and not case.analyzable:
+            factor *= NON_ANALYZABLE_FACTOR  # 해결법을 찾는 탐색 시간 (Perrow)
         manual = self.p.get("manual", False)
         sigma = 0.3 if manual else 0.6  # 매뉴얼이 있으면 처리 편차가 작다 (공식화)
         return WORK_MEDIAN[service] * factor * math.exp(self.rng.gauss(0, sigma))
@@ -179,6 +191,7 @@ class Simulation:
         """신고 → 관련자·참고인 진술 → 발생보고 → 교육지원청 조사 → 출석통지·서면 의견 → (분쟁조정) → 의결·통지.
         supported=True면 주 담당(전담관)이 서류를 대신 챙겨 교사가 다시 진술하지 않는다."""
         env, r = self.env, self.prng
+        c.committee = True
         office = f"{c.office} " if c.office else ""
         c.log(env.now, "학교", "침해 관련자 의견서 접수 (서식 3)", self.cite("investigation"))
         if r.random() < WITNESS_PROB:
@@ -281,7 +294,14 @@ class Simulation:
                         c.first_response = env.now
                     label = "지원센터(갈등조정 겸임)" if s == "갈등조정" else {"상담": "지원센터", "법률": "법률지원 부서", "행정": "교육지원청"}[s]
                     c.log(env.now, label, f"[{s}] 처리 시작 (교사가 처음부터 다시 설명)")
-                    yield env.timeout(self.work(s, factor))
+                    yield env.timeout(self.work(s, factor, c))
+            # 분석가능성이 낮으면 앞 기관의 판단이 이번 기관에서 맞지 않아 교사가 되돌아간다 (조정자 부재)
+            if prev and not c.analyzable and self.rng.random() < p.get("rework_prob", REWORK_PROB):
+                c.reworks += 1
+                c.contacts += 1
+                c.repeats += 1
+                c.log(env.now, "피해 교원", f"[{prev}] 판단이 [{s}]에서 맞지 않아 앞 기관에 다시 문의 (해결 절차 불명확)")
+                yield env.timeout(self.rng.uniform(4, 8))
             # 앞 기관의 결과가 다음 기관에 필요하면 교사가 직접 전달한다 (조정자 부재)
             if prev and (c.interdependence != "집합적") and self.rng.random() < p["relay_prob"]:
                 c.contacts += 1
@@ -349,10 +369,16 @@ class Simulation:
             # 필요한 전문가를 병렬로 연결 (행정은 교육전문직인 주 담당이 직접)
             jobs = [env.process(self.specialist(c, s)) for s in c.needs if s != "행정"]
             if "행정" in c.needs:
-                yield env.timeout(self.work("행정"))
+                yield env.timeout(self.work("행정", case=c))
                 c.log(env.now, "상근 전담관", "[행정] 절차 직접 처리", self.cite("officer_duty"))
             if jobs:
                 yield simpy.AllOf(env, jobs)
+            if not c.analyzable and len(c.needs) >= 2:
+                # 해결 절차가 불명확한 사안은 사례 회의에서 예외를 팀 안에서 흡수한다 (교사 재방문 없음)
+                c.reworks += 1
+                c.coordination += len(c.needs)
+                c.log(env.now, "상근 전담관", "해결 절차가 불명확해 사례 회의로 전문가 판단을 다시 맞춤", self.cite("team"))
+                yield env.timeout(2)
             if c.interdependence == "교호적":
                 n = len(c.needs)
                 c.coordination += n * (n - 1) // 2
@@ -372,7 +398,7 @@ class Simulation:
                 yield req
                 c.coordination += 2
                 c.log(env.now, "지역교권보호지원센터", "[상담] 연계절차로 사안팀 합류 (재진술 없음)", self.cite("linkage"))
-                yield env.timeout(self.work(s))
+                yield env.timeout(self.work(s, case=c))
             return
         a = p["nonregular_availability"]
         with self.pools[s].request() as req:
@@ -382,7 +408,7 @@ class Simulation:
             yield env.timeout(wait)
             c.coordination += 2
             c.log(env.now, "비상근 전담관", f"[{s}] 합류 (일정 조율 {wait / HOURS_PER_DAY:.1f}일)", self.cite("nonregular"))
-            t = self.work(s)
+            t = self.work(s, case=c)
             if s == "수사연계":
                 t += self.police()
             if t > HOURS_PER_DAY and self.rng.random() < (1 - a) * 0.5:
