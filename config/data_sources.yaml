@@ -122,6 +122,14 @@ sources:
     key: "-"
     used_in: 실측 분석 ④ 참고 추이 (17개 시도가 모이면 회귀에 씀)
   - group: 실측 통계
+    provider: 한국교육개발원 (교육통계서비스 KESS)
+    name: 시도별 학생수 (초·중·고, 1965~2026)
+    url: https://kess.kedi.re.kr
+    date: "2026-04-01"
+    format: XLSX 3개 (초·중·고) → 2022~2026 합계 data/measured/schoolinfo/students_by_sido.csv
+    key: "-"
+    used_in: 실측 분석 ④ 학폭 심의율·촉법소년의 연도별 학생 수 분모
+  - group: 실측 통계
     provider: 한국교육학술정보원 (학교알리미)
     name: 학교알리미 공시정보 Open API (학년별·학급별 학생수 등)
     url: https://www.schoolinfo.go.kr/ng/go/pnnggo_a01_m0.do

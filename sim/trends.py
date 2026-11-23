@@ -302,12 +302,14 @@ def school_violence_sido() -> pd.DataFrame:
     except Exception:
         st_ = pd.DataFrame()
     if not st_.empty:
-        st_ = st_.rename(columns={"공시연도": "학년도", "학생수": "_학생수"})
-        df = df.merge(st_, on=["시도", "학년도"], how="left")
+        st_ = st_.rename(columns={"공시연도": "학년도", "학생수": "_학생수", "출처": "_출처"})
+        if "_출처" not in st_:
+            st_["_출처"] = "학교알리미 Open API"
+        df = df.merge(st_[["시도", "학년도", "_학생수", "_출처"]], on=["시도", "학년도"], how="left")
         hit = df["_학생수"].notna()
         df.loc[hit, "학생수"] = df.loc[hit, "_학생수"]
-        df.loc[hit, "학생수 기준"] = "학교알리미 Open API (해당 연도)"
-        df = df.drop(columns="_학생수")
+        df.loc[hit, "학생수 기준"] = df.loc[hit, "_출처"]
+        df = df.drop(columns=["_학생수", "_출처"])
     df["학폭 심의 / 학생 1천 명"] = (df["학폭심의건수"] / df["학생수"] * 1000).round(2)
     df["자체해결 포함 / 학생 1천 명"] = ((df["학폭심의건수"] + df["학교장자체해결건수"]) / df["학생수"] * 1000).round(2)
     return df
@@ -338,10 +340,14 @@ def delinquency_panel() -> pd.DataFrame:
     if not jc.empty:
         jp = jc.pivot_table(index=["시도", "연도"], columns="지표", values="값", aggfunc="sum").reset_index()
         jp.columns.name = None
-        if not sv.empty:   # 소년범죄도 학생 1천 명당으로 (학생 수는 2026 공시 기준)
-            stu = sv.drop_duplicates("시도").set_index("시도")["학생수"]
+        if not sv.empty:   # 소년범죄도 학생 1천 명당으로 (같은 해 학생 수, 없으면 가장 가까운 해)
+            stu = sv.sort_values("학년도").groupby("시도")
+            def _n(r):
+                g = stu.get_group(r["시도"]) if r["시도"] in stu.groups else None
+                return None if g is None else g.iloc[(g["학년도"] - r["연도"]).abs().argmin()]["학생수"]
+            n = jp.apply(_n, axis=1).astype(float)
             for c in [c for c in jp.columns if c not in ("시도", "연도")]:
-                jp[f"{c} / 학생 1천 명"] = (jp[c] / jp["시도"].map(stu) * 1000).round(2)
+                jp[f"{c} / 학생 1천 명"] = (jp[c] / n * 1000).round(2)
         parts.append(jp)
     if not parts:
         return pd.DataFrame(columns=["시도", "연도"])

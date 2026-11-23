@@ -168,6 +168,7 @@ tests/
 | 교육부 학교알리미 공시 (school-violence-map 공개 집계) | [학교폭력 심의 결과·학교장 자체해결 (초·중·고 약 1만 2천 곳, 2023~2026 공시)](https://geeksbaek.github.io/school-violence-map/) | 2026-05-16 수집 | JSON → data/measured/school_violence_sido.csv | - | 실측 분석 ⑦ 학교폭력 심의율과 교보위 심의 회귀 |
 | 시·도교육청 (보도자료·지역 언론) | 학교폭력 실태조사 1차 시도별 피해응답률 2022~2026 (시도별 출처는 CSV 출처 칸) | 매년 9월 발표 | 보도 본문 → data/measured/school_violence_survey_sido.csv | - | 실측 분석 ⑦ 피해응답률 회귀 (신뢰도 C) |
 | 경찰청 자료 인용 보도 | [시도별 촉법소년 소년부 송치 (7개 시도 일부)](https://www.kyeonggi.com/article/20251006580034) | 2024~2025 보도 | 기사 본문 → data/measured/juvenile_crime_sido.csv | - | 실측 분석 ⑦ 참고 추이 |
+| 한국교육개발원 (교육통계서비스 KESS) | [시도별 학생수 (초·중·고)](https://kess.kedi.re.kr) | 2026-04-01 | XLSX → data/measured/schoolinfo/students_by_sido.csv | - | 실측 분석 ④ 학폭 심의율·촉법소년 연도별 학생 수 분모 |
 | 한국교육학술정보원 (학교알리미) | [공시정보 Open API (학년별·학급별 학생수 등)](https://www.schoolinfo.go.kr/ng/go/pnnggo_a01_m0.do) | 수시 | Open API (config/schoolinfo.yaml) | `SCHOOLINFO_KEY` | 실측 분석 ⑦ 연도별 학생 수 (python -m collector.schoolinfo) |
 
 **위치·기관**
