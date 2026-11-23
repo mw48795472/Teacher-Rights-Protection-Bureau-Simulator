@@ -154,8 +154,16 @@ with st.expander("전체 데이터 출처 표"):
 
 @st.cache_data(ttl=3600, show_spinner="API 키 확인 중…")
 def _key_status() -> tuple[list[dict], list[dict]]:
-    gg, asm = gg_data.check_key(), assembly.check_key()
-    bills = [d.to_dict() for d in assembly.cached_bills(load_sources().get("bills"))] if asm["ok"] else []
+    def safe(f):
+        try:
+            return f()
+        except Exception as e:  # noqa: BLE001  키 확인 실패가 화면 전체를 멈추지 않게
+            return {"ok": False, "reason": f"연결 실패 ({type(e).__name__})"}
+    gg, asm = safe(gg_data.check_key), safe(assembly.check_key)
+    try:
+        bills = [d.to_dict() for d in assembly.cached_bills(load_sources().get("bills"))] if asm["ok"] else []
+    except Exception:  # noqa: BLE001
+        bills = []
 
     def row(name, key, ok, reason):
         return {"서비스": name, "키": key, "상태": "정상" if ok else "미연결", "비고": reason}

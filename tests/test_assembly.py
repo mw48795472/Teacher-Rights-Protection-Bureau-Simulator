@@ -116,3 +116,36 @@ def test_cached_law_docs_and_load_corpus_replace_seed(tmp_path, monkeypatch):
     docs = pipeline.load_corpus(path=pipeline.OUT, live_bills=False)
     ids = {d.id for d in docs}
     assert "ord-live-6" in ids and "ord-06" not in ids   # 같은 조문번호 시드 요약이 빠짐
+
+
+def test_check_key_survives_foreign_error_class(monkeypatch):
+    """배포 앱이 gg_data 를 다시 읽으면 GgDataError 클래스가 바뀐다. 그래도 check_key 는 예외를 내지 않는다."""
+    from collector import assembly
+
+    class OtherError(RuntimeError):
+        pass
+
+    def boom(*a, **k):
+        raise OtherError("nzmimeepazxkubdpn 요청 실패 (ConnectTimeout)")
+    monkeypatch.setattr(assembly, "fetch_rows", boom)
+    r = assembly.check_key(key="x")
+    assert r["ok"] is False and "연결 실패" in r["reason"]
+
+
+def test_evidence_page_survives_assembly_failure(monkeypatch):
+    import sys
+    from pathlib import Path
+    from streamlit.testing.v1 import AppTest
+    from collector import assembly, gg_data
+    root = Path(__file__).resolve().parent.parent
+    monkeypatch.setenv("ASSEMBLY_KEY", "x")
+    monkeypatch.setenv("GG_DATA_KEY", "x")
+
+    def boom(*a, **k):
+        raise ValueError("unexpected")
+    monkeypatch.setattr(assembly, "check_key", boom)
+    monkeypatch.setattr(gg_data, "check_key", boom)
+    monkeypatch.syspath_prepend(str(root / "app"))
+    sys.modules.pop("common", None)
+    at = AppTest.from_file(str(root / "app" / "pages" / "3_근거_자료.py"), default_timeout=60).run()
+    assert not at.exception

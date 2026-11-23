@@ -89,3 +89,18 @@ def test_edufin_parsing_and_keyword(monkeypatch):
     monkeypatch.delenv("EDUFIN_KEY", raising=False)
     assert edufin.check()["ok"] is False
     assert tr.edufin_budget(fetch=False)[1] in ("no_key", "ok", "no_keyword")
+
+
+def test_kosis_finds_table_by_search(monkeypatch):
+    from collector import kosis
+    monkeypatch.setenv("KOSIS_KEY", "x")
+
+    def fake(path, client=None, **p):
+        if path == "statisticsSearch.do":
+            return [{"ORG_ID": "334", "TBL_ID": "DT_A", "TBL_NM": "시도별 교원수"},
+                    {"ORG_ID": "101", "TBL_ID": "DT_B", "TBL_NM": "시도별 교원수"}]
+        assert p["tblId"] == "DT_A"
+        return [{"C1_NM": n, "PRD_DE": "2024", "DT": "100", "ITM_NM": "교원수"} for n in kosis.SIDO]
+    monkeypatch.setattr(kosis, "_get", fake)
+    df = kosis.fetch_teachers({"teachers": {"orgId": "334", "item": "교원"}})
+    assert df["시도"].nunique() == 17 and "DT_A" in df.attrs["table"]

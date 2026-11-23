@@ -82,7 +82,8 @@ def fetch_rows(service: str, key: str | None, page_size: int = 1000, max_pages: 
                 r.raise_for_status()
                 payload = r.json()
             except (httpx.HTTPError, ValueError) as e:  # 예외 메시지에 URL(키 포함)이 섞이지 않게
-                raise GgDataError(f"{service} 요청 실패 ({type(e).__name__})") from None
+                code = f" HTTP {e.response.status_code}" if isinstance(e, httpx.HTTPStatusError) else ""
+                raise GgDataError(f"{service} 요청 실패 ({type(e).__name__}{code})") from None
             rows, total = parse_openapi(payload, service)
             out.extend(rows)
             if not key or not rows or len(out) >= total:
@@ -101,8 +102,8 @@ def check_key(key: str | None = None, client: httpx.Client | None = None) -> dic
     svc = SERVICES["police"]["service"]
     try:
         rows = fetch_rows(svc, key, page_size=20, max_pages=1, client=client)
-    except GgDataError as e:
-        return {"ok": False, "reason": str(e)}
+    except Exception as e:  # noqa: BLE001  모듈을 다시 읽은 뒤 GgDataError 클래스가 달라져도 화면이 죽지 않게
+        return {"ok": False, "reason": f"연결 실패: {e}" if isinstance(e, RuntimeError) else f"연결 실패 ({type(e).__name__})"}
     if len(rows) <= SAMPLE_ROWS:
         return {"ok": False, "reason": f"샘플 {len(rows)}건만 받음 (키가 아직 승인되지 않았을 수 있음)", "rows": len(rows)}
     return {"ok": True, "reason": "정상", "rows": len(rows)}
