@@ -26,7 +26,8 @@ CFG = ROOT / "config" / "edufin.yaml"
 OUT = ROOT / "data" / "measured" / "edufin"
 
 
-LAST_HEAD = ""   # 마지막 응답 앞부분 (키는 가림). 행이 0건일 때 원인을 보여 주려고 남긴다
+LAST_HEAD = ""
+LAST_SHAPE = ""  # 마지막 응답 구조 요약   # 마지막 응답 앞부분 (키는 가림). 행이 0건일 때 원인을 보여 주려고 남긴다
 
 
 class EdufinError(RuntimeError):
@@ -61,14 +62,27 @@ def _rows(payload) -> list[dict]:
 
 
 def _error(payload) -> str | None:
-    """RESULT/CODE 형식의 오류 응답이면 메시지."""
+    """RESULT/CODE 형식의 오류 응답이면 메시지. '정상 처리'(INFO, INFO-000 등)는 오류가 아니다."""
     if isinstance(payload, dict):
         res = payload.get("RESULT") or payload.get("result")
         if isinstance(res, dict):
             code = str(res.get("CODE") or res.get("code") or "")
-            if code and not code.endswith("000") and code != "INFO-200":
-                return f"{code}: {res.get('MESSAGE') or res.get('message') or ''}"
+            msg = str(res.get("MESSAGE") or res.get("message") or "")
+            if not code or "정상" in msg or code in ("INFO", "INFO-000", "INFO-200") or code.endswith("-000"):
+                return None
+            return f"{code}: {msg}"
     return None
+
+
+def shape(payload, depth: int = 0) -> str:
+    """응답 구조 요약 (진단용): 키 이름과 목록 길이만."""
+    if depth > 3:
+        return "…"
+    if isinstance(payload, dict):
+        return "{" + ", ".join(f"{k}: {shape(v, depth + 1)}" for k, v in list(payload.items())[:8]) + "}"
+    if isinstance(payload, list):
+        return f"[{len(payload)}개" + (f" {shape(payload[0], depth + 1)}" if payload else "") + "]"
+    return type(payload).__name__
 
 
 def _xml_rows(root) -> list[dict]:
@@ -133,6 +147,8 @@ def fetch(service: str, year: int | str | None, key: str | None = None, page_siz
             global LAST_HEAD
             LAST_HEAD = " ".join(r.text.replace(key, "***").split())[:200]
             payload = parse_body(r.text, key)
+            global LAST_SHAPE
+            LAST_SHAPE = shape(payload)
             err = _error(payload)
             if err:
                 raise EdufinError(err)
@@ -189,7 +205,7 @@ def probe(service: str = "opclTotal", years=(2025, 2024, 2023, 2022), client=Non
             return {"ok": True, "mode": label, "params": extra, "year": y, "df": df, "tried": tried,
                     "key_problem": False}
         head = LAST_HEAD
-        tried.append((label, f"0행 · {head[:120] or '(빈 응답)'}"))
+        tried.append((label, f"0행 · 구조 {LAST_SHAPE[:160]} · 앞부분 {head[:120] or '(빈 응답)'}"))
         key_problem |= any(k in head for k in KEY_PROBLEM)
     return {"ok": False, "mode": None, "params": {}, "year": None, "df": pd.DataFrame(), "tried": tried,
             "key_problem": key_problem}
