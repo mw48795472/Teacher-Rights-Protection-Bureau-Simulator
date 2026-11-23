@@ -6,8 +6,8 @@ from sim import calibration as cal
 
 st.set_page_config(page_title="실측 데이터", page_icon="🏫", layout="wide")
 llm_badge()
-st.title("실측 데이터와 가정값")
-st.caption("시뮬레이터 값 가운데 무엇이 공공데이터로 맞춰졌고 무엇이 아직 가정인지 보여 줍니다. "
+st.title("실측 데이터")
+st.caption("시뮬레이터가 쓰는 공공데이터와 그 출처, API 키 연결 상태를 보여 줍니다. "
            "원자료는 저장소 `data/measured/raw/`, 옮긴 숫자는 `config/measured.yaml`에 있습니다.")
 
 st.subheader("데이터 출처")
@@ -20,20 +20,6 @@ if not src.empty:
             st.dataframe(src[src["구분"] == g].drop(columns="구분"), hide_index=True, use_container_width=True,
                          column_config={"링크": st.column_config.LinkColumn("링크", display_text="열기")})
     st.caption("목록은 `config/data_sources.yaml`에 있습니다. 키는 `.env` 또는 Streamlit Secrets에 넣습니다.")
-
-st.subheader("값별 실측·가정 현황")
-st.dataframe(cal.assumption_table(), hide_index=True, use_container_width=True)
-st.info("처리 시간, 전담관 인원·가용률, 위원회 개최 간격은 공개 자료가 없어 가정값입니다. "
-        "경기도교육청 정보공개청구 답변을 받으면 이 표의 '가정 유지' 항목을 바꿉니다.")
-
-st.subheader("사안 유형 비율: 팀 가정 vs 실측 기반")
-mix = cal.case_mix_table()
-st.dataframe(mix, hide_index=True, use_container_width=True)
-long = mix.melt(id_vars="사안 유형", value_vars=["팀 가정(%)", "실측 기반(%)"], var_name="기준", value_name="비율(%)")
-st.plotly_chart(px.bar(long, x="사안 유형", y="비율(%)", color="기준", barmode="group"), use_container_width=True)
-st.caption("교권보호위원회 침해 유형은 대부분 학생에 의한 침해라 학부모 민원 비중이 낮게 잡힙니다. "
-           "경기 교권보호단은 학부모 민원·아동학대 신고 사안이 많다고 보도되었으므로, 실측 기반 비율은 "
-           "'교보위로 가는 사안 전체'의 구성으로 읽어 주세요. 끄려면 `config/measured.yaml`의 `use.case_mix`를 false로 바꿉니다.")
 
 c1, c2 = st.columns(2)
 with c1:
