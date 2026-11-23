@@ -148,3 +148,14 @@ def test_edufin_probe_flags_key_problem(monkeypatch):
     c = _edufin_client(lambda req: httpx.Response(200, json={"RESULT": {"CODE": "ERROR-290", "MESSAGE": "인증키가 유효하지 않습니다."}}))
     r = edufin.check({"services": [{"requestType": "opclTotal"}], "years": [2024]}, client=c)
     assert not r["ok"] and "키 문제" in r["reason"]
+
+
+def test_edufin_info_code_is_not_error(monkeypatch):
+    import httpx
+    from collector import edufin
+    monkeypatch.setenv("EDUFIN_KEY", "k")
+    rows = [{"ATPT_OFCDC_NM": f"교육청{i}", "AMT": i} for i in range(10)]
+    c = _edufin_client(lambda req: httpx.Response(200, json={"RESULT": {"CODE": "INFO", "MESSAGE": "정상 처리되었습니다."},
+                                                              "list": rows}))
+    pr = edufin.probe("opclTotal", [2024], client=c)
+    assert pr["ok"] and len(pr["df"]) == 10
