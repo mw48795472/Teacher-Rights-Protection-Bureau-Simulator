@@ -31,7 +31,7 @@ c1, c2, c3 = st.columns([2, 2, 1])
 pick = c1.selectbox("시나리오", range(len(sc)), format_func=lambda i: sc[i]["name"])
 keys = c2.multiselect("조직 구조", list(STRUCTURES), default=["integrated", "drama"],
                       format_func=lambda k: STRUCTURES[k].name)
-max_turns = c3.slider("최대 행동 수", 6, 30, 20)
+max_turns = c3.slider("최대 행동 수", 6, 40, 26)
 spec = sc[pick]
 st.caption(spec.get("description", ""))
 

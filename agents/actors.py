@@ -58,6 +58,9 @@ def scripted_action(role: str, s: AgentStructure, history: list[str], turn: int)
             return A("민원제기", "담임 교사의 다툼 중재가 편파적이었다며 학교에 항의 민원을 넣는다.", ["학교장", "피해 교원"], "학교")
         if not _done(history, role, "폭언·위협"):
             return A("폭언·위협", "교사에게 전화로 '가만두지 않겠다'며 폭언하고 반복 민원을 예고한다.", ["피해 교원"], "피해 교원")
+        if not _done(history, role, "분쟁조정신청"):
+            return A("분쟁조정신청", "교사와의 갈등을 조정해 달라며 학교에 분쟁조정 신청서(서식 5)를 낸다.",
+                     ["지역교권보호위원회"], "피해 교원")
         return A("소송제기", "교사를 상대로 민사 소송을 제기한다.", ["피해 교원"], "피해 교원")
     if role == "피해 교원":
         if s.key == "distributed":
@@ -69,8 +72,17 @@ def scripted_action(role: str, s: AgentStructure, history: list[str], turn: int)
         if not _done(history, role, "지원요청"):
             nxt = "교권보호국 요원" if s.key == "drama" else "교권보호 119"
             return A("지원요청", f"{nxt}에 연락해 피해 사실을 알린다.", [nxt], nxt)
+        if s.key == "integrated" and _done(history, "교육지원청 담당자", "사안조사") and not _done(history, role, "의견서제출"):
+            return A("의견서제출", "전담관과 함께 서면 의견서(서식 11-1)를 써서 위원회에 낸다.", ["지역교권보호위원회"],
+                     "지역교권보호위원회")
         return A("기타", "수업을 이어가며 전담관 안내를 기다린다.")
     if role == "학교장":
+        office = ["교육지원청 담당자"]
+        if not _done(history, role, "분리조치"):
+            return A("분리조치", "피해 교원의 분리 의사를 확인(서식 2)하고 가해 학생을 즉시 분리한다.", ["학교장"], "학생")
+        if not _done(history, role, "참고인진술"):
+            return A("참고인진술", "관련 학생·보호자 의견서(서식 3)와 목격한 교사·학생의 참고인 진술서(서식 4)를 받고 "
+                     "발생보고서(서식 6)를 교육지원청에 낸다.", office, "교육지원청")
         return A("학부모면담", "학부모를 만나 진정시키려 하고, 교사에게는 상위 기관 문의를 권한다.", ["피해 교원"], "학부모")
     if role == "교권보호 119":
         return A("사안접수", "사안을 접수해 중대 사안으로 분류하고 상근 전담관에게 배정한다.", ["상근 전담관", "교육감"])
@@ -90,12 +102,17 @@ def scripted_action(role: str, s: AgentStructure, history: list[str], turn: int)
     if role in ("비상근 전담관(상담)", "지역교권보호지원센터"):
         return A("심리상담", "피해 교원의 심리 상태를 점검하고 상담을 시작한다.", [], "피해 교원")
     if role == "교육지원청 담당자":
+        if not _done(history, role, "사안조사"):
+            return A("사안조사", "발생보고서를 바탕으로 사안을 조사해 조사보고서(서식 10)를 만들고, 당사자에게 위원회 "
+                     "출석통지서(서식 11)를 보낸다.", ["지역교권보호위원회", "피해 교원"], "피해 교원")
         return A("행정절차처리", "민원 처리 절차를 안내하고 서류 제출을 요청한다.", [], "피해 교원")
     if role == "교육감":
         if not _done(history, role, "수사기관고발"):
             return A("수사기관고발", "중대 사안으로 지정하고 교육청 명의로 학부모를 고발한다.", ["수사기관"], "학부모")
         return A("기타", "진행 상황을 보고받는다.")
     if role == "지역교권보호위원회":
+        if any("[분쟁조정신청]" in h for h in history) and not _done(history, role, "분쟁조정"):
+            return A("분쟁조정", "학부모의 분쟁조정 신청을 받아 양측 의견을 듣고 조정안을 제시한다.", ["피해 교원"], "학부모")
         return A("위원회심의·조치", "교육활동 침해로 인정하고 보호자에게 특별교육 이수 조치를 의결한다.", ["피해 교원"], "학부모")
     if role == "수사기관":
         return A("수사착수", "고발 사건을 접수해 수사를 시작한다.", [])

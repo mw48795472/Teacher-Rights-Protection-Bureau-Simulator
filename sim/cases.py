@@ -45,6 +45,8 @@ class Case:
     handoffs: int = 0             # 담당자 공백·교체
     misroutes: int = 0            # 잘못된 창구로 안내
     guard_blocks: int = 0         # 권한 밖 행동을 근거 조문으로 막은 횟수
+    witnesses: int = 0            # 참고인 진술 수 (서식 4)
+    mediation: bool = False       # 분쟁조정 신청 여부 (서식 5)
     trace: list = field(default_factory=list)
 
     @property

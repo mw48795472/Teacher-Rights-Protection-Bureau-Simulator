@@ -33,7 +33,7 @@ def to_frame(cases: list[Case], structure: str) -> pd.DataFrame:
             "closure_days": (c.closed - c.arrival) / HOURS_PER_DAY,
             "contacts": c.contacts, "repeats": c.repeats, "coordination": c.coordination,
             "duplicates": c.duplicates, "handoffs": c.handoffs, "misroutes": c.misroutes,
-            "guard_blocks": c.guard_blocks,
+            "guard_blocks": c.guard_blocks, "witnesses": c.witnesses, "mediation": c.mediation,
         })
     return pd.DataFrame(rows)
 

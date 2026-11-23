@@ -45,7 +45,16 @@ CITE_QUERIES = {
     "distributed": "업무 부서별 분산 피해 교사 절차 직접",
     "team": "상근 전담관 주 담당 비상근 센터 담당 함께 배치",
     "nonregular": "전담관 대부분 비상근",
+    "separation": "즉시 분리 의사 확인서 분리",
+    "investigation": "관련자 의견서 참고인 진술서 발생보고서",
+    "office_probe": "사안 조사보고서 출석통지서 서면 의견서",
+    "mediation": "분쟁조정 신청서",
+    "decision": "조치 의결서 조치 결정 통지서",
 }
+
+# 길라잡이 서식 순서대로 본 위원회 절차 (시간·확률은 가정)
+WITNESS_PROB = 0.6        # 참고인 진술이 필요한 사안 비율
+MEDIATION_PROB = 0.3      # 갈등조정이 필요한 사안 중 분쟁조정을 신청하는 비율
 
 
 def list_structures() -> dict[str, dict]:
@@ -103,6 +112,7 @@ class Simulation:
         self._ids = itertools.count(1)
         self._scenario_ids = itertools.count(9001)
         self.geo_rng = random.Random(cfg.seed + 20_000)
+        self.prng = random.Random(cfg.seed + 30_000)  # 위원회 절차용 (다른 난수 흐름을 흔들지 않게)
         self.office_names = list(cfg.offices or {})
         self.office_w = [cfg.offices[k] for k in self.office_names] if cfg.offices else []
         self.slots: dict[str, dict[int, int]] = {k: {} for k in self.office_names}
@@ -155,7 +165,60 @@ class Simulation:
         return POLICE_DELAY_MEDIAN * math.exp(self.rng.gauss(0, 0.5))
 
     def needs_committee(self, c: Case) -> bool:
-        return c.severity >= 2 and "소송" not in c.type and c.type != "단순 상담"
+        # 민·형사 소송 사안은 법원 절차로 가고, 시나리오처럼 악성민원에 소송이 겹친 사안은 위원회도 연다
+        return c.severity >= 2 and not c.type.startswith(("민·형사 소송", "단순 상담"))
+
+    # ── 위원회 절차 (길라잡이 서식 1~15) ──
+    def separation(self, c: Case, school: str):
+        """중대하거나 폭행이 낀 사안은 피해교원 의사를 확인해 즉시 분리한다 (서식 2)."""
+        if c.severity == 3 or "폭" in c.type:
+            c.log(self.env.now, school, "피해교원 분리 의사 확인 후 즉시 분리 (서식 2)", self.cite("separation"))
+            yield self.env.timeout(0.5)
+
+    def committee_procedure(self, c: Case, supported: bool):
+        """신고 → 관련자·참고인 진술 → 발생보고 → 교육지원청 조사 → 출석통지·서면 의견 → (분쟁조정) → 의결·통지.
+        supported=True면 주 담당(전담관)이 서류를 대신 챙겨 교사가 다시 진술하지 않는다."""
+        env, r = self.env, self.prng
+        office = f"{c.office} " if c.office else ""
+        c.log(env.now, "학교", "침해 관련자 의견서 접수 (서식 3)", self.cite("investigation"))
+        if r.random() < WITNESS_PROB:
+            c.witnesses = r.randint(1, 3)
+            c.log(env.now, "학교", f"참고인 {c.witnesses}명 진술서 받음 (서식 4)", self.cite("investigation"))
+            yield env.timeout(c.witnesses * r.uniform(2, 6))
+        yield env.timeout(r.uniform(2, 8))
+        c.log(env.now, "학교", "교육활동 침해 사안 발생보고서 제출 (서식 6)", self.cite("investigation"))
+        yield env.timeout(r.uniform(8, 24))
+        if supported:
+            c.coordination += 1
+            c.log(env.now, f"{office}교육지원청", "사안 조사 (전담관이 지원계획·상담 기록 제공, 교사 재진술 없음) (서식 10)",
+                  self.cite("office_probe"))
+        else:
+            c.contacts += 1
+            c.repeats += 1
+            c.log(env.now, f"{office}교육지원청", "사안 조사: 교사가 처음부터 다시 진술 (서식 10)", self.cite("office_probe"))
+            yield env.timeout(r.uniform(2, 6))
+        c.log(env.now, f"{office}교육지원청", "출석통지서 발송 (서식 11)", self.cite("office_probe"))
+        if supported:
+            c.coordination += 1
+            c.log(env.now, "상근 전담관", "피해교원 서면 의견서 작성 지원 (서식 11-1)", self.cite("office_probe"))
+            yield env.timeout(r.uniform(1, 3))
+        else:
+            c.repeats += 1
+            c.log(env.now, "피해 교원", "서면 의견서 혼자 작성 (서식 11-1)", self.cite("office_probe"))
+            yield env.timeout(r.uniform(4, 10))
+        if "갈등조정" in c.needs and r.random() < MEDIATION_PROB:
+            c.mediation = True
+            who = "상근 전담관" if supported else "피해 교원"
+            c.log(env.now, who, "분쟁조정 신청서 제출 (서식 5)", self.cite("mediation"))
+            if not supported:
+                c.contacts += 1
+        yield env.timeout(self.committee_wait(c))
+        if c.mediation:
+            c.log(env.now, f"{office}지역교권보호위원회", "분쟁조정: 양측 의견 청취 후 조정안 제시", self.cite("committee"))
+            yield env.timeout(r.uniform(2, 6))
+        c.log(env.now, f"{office}지역교권보호위원회", "심의 후 조치 의결 (서식 14)", self.cite("decision"))
+        yield env.timeout(r.uniform(4, 16))
+        c.log(env.now, f"{office}교육지원청", "조치 결정 통지 (서식 15)", self.cite("decision"))
 
     # ── 사안 도착 ──
     def arrivals(self):
@@ -191,6 +254,7 @@ class Simulation:
         c.repeats += 1
         yield env.timeout(self.rng.uniform(1, 4))
         c.log(env.now, "학교 관리자", "1차 대응 후 '해당 부서에 문의하라'고 안내", self.cite("distributed"))
+        yield from self.separation(c, "학교 관리자")
         prev = None
         for s in c.needs:
             # 어느 창구로 가야 하는지 교사가 직접 찾는다 (정보 비대칭)
@@ -236,9 +300,8 @@ class Simulation:
         if self.needs_committee(c):
             c.contacts += 1
             c.repeats += 1
-            c.log(env.now, "피해 교원", "지역교권보호위원회 심의 직접 신청", self.cite("committee"))
-            yield env.timeout(self.committee_wait(c))
-            c.log(env.now, f"{c.office + ' ' if c.office else ''}지역교권보호위원회", "심의·조치", self.cite("committee_rare"))
+            c.log(env.now, "피해 교원", "학교에 교육활동 침해 사안 신고서 직접 제출 (서식 1)", self.cite("committee"))
+            yield from self.committee_procedure(c, supported=False)
         c.closed = env.now
         c.log(env.now, "피해 교원", "사안 종결 (사후 관리는 교사 몫)")
 
@@ -250,6 +313,7 @@ class Simulation:
         c.repeats += 1
         yield env.timeout(self.rng.uniform(0.5, 2))
         c.log(env.now, "교권보호 119 접수", "접수·분류")
+        yield from self.separation(c, "학교")
         misroute = 0.05 if p["manual"] else 0.2
         if self.rng.random() < misroute:
             c.misroutes += 1
@@ -296,8 +360,8 @@ class Simulation:
                 yield env.timeout(2)
             if self.needs_committee(c):
                 c.coordination += 1
-                yield env.timeout(self.committee_wait(c))
-                c.log(env.now, f"{c.office + ' ' if c.office else ''}지역교권보호위원회", "심의·조치 (전담관이 자료 제출)", self.cite("committee"))
+                c.log(env.now, "상근 전담관", "교육활동 침해 사안 신고서 작성 지원 (서식 1)", self.cite("committee"))
+                yield from self.committee_procedure(c, supported=True)
             c.closed = env.now
             c.log(env.now, "상근 전담관", "사안 종결 → 사후 관리로 전환", self.cite("officer_duty"))
 
