@@ -25,6 +25,14 @@ st.warning("**🧪 이 페이지의 사안·지표·차트는 모두 가상 데�
            "처리시간·확률·인원은 팀 가정값입니다. 구조 간 차이의 방향을 보는 사고실험으로 읽어 주세요.")
 
 
+VIEWS = {"compare": "📊 구조 비교 (수백 건)", "trace": "🧭 사안 추적 (1건)"}
+_qv = st.query_params.get("view", "compare")
+view = st.segmented_control("보기", list(VIEWS), default=_qv if _qv in VIEWS else "compare",
+                            format_func=VIEWS.get, key="sim_view", label_visibility="collapsed") or "compare"
+if view != _qv:
+    st.query_params["view"] = view
+
+
 def analysis(lines: list[str], title: str = "분석"):
     if lines:
         with st.container(border=True):
@@ -65,6 +73,10 @@ with st.sidebar:
         over["regular_officers"] = st.slider("조건② 상근 전담관 수", 5, 60, 20, 5)
         over["manual"] = st.toggle("조건③ 업무매뉴얼 (조례 제25조)", True)
 
+if view == "trace":
+    import case_trace
+    case_trace.render(days, rate, int(seed), cap, source)
+    st.stop()
 if not picked:
     st.info("비교할 구조를 하나 이상 고르세요.")
     st.stop()
