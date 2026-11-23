@@ -122,6 +122,21 @@ boards:          # 기관 보도자료 게시판을 제목 키워드로 검색�
     since: "2025-01-01"
     max_posts: 40
 
+bills:           # 국회 법률안 (열린국회정보, ASSEMBLY_KEY). 법률안명에 검색어가 들어간 의안의 제안이유를 받습니다.
+  ages: [22]                 # 국회 대수
+  since: "2024-05-30"        # 제22대 개원
+  max_bills: 40
+  queries:
+    - name: 교원의 지위 향상    # 교원지위법 개정안
+    - name: 교육활동
+    - name: 교권
+    - name: 중등교육법          # 초ㆍ중등교육법 개정안 중 교원·교육활동 관련만
+      must_contain: [교원, 교육활동, 생활지도]
+    - name: 아동학대범죄의 처벌  # 아동학대처벌법 개정안 중 교원 관련만
+      must_contain: [교원, 교사, 생활지도]
+    - name: 유아교육법
+      must_contain: [교원, 교육활동]
+
 files:           # 웹페이지가 아닌 파일 (HWPX·PDF·DOCX). url 또는 path(저장소 기준 상대경로)
   - path: data/measured/raw/교육부_교권보호위원회_개최_현황_20240229.hwpx
     title: 교육부 「교권보호위원회 개최 현황」(학교급별·유형별, 2020~2023학년도)

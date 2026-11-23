@@ -10,6 +10,17 @@ st.title("실측 데이터와 가정값")
 st.caption("시뮬레이터 값 가운데 무엇이 공공데이터로 맞춰졌고 무엇이 아직 가정인지 보여 줍니다. "
            "원자료는 저장소 `data/measured/raw/`, 옮긴 숫자는 `config/measured.yaml`에 있습니다.")
 
+st.subheader("데이터 출처")
+src = cal.data_sources_table()
+if not src.empty:
+    src["링크"] = src["링크"].where(src["링크"].str.startswith("http"), None)
+    groups = list(dict.fromkeys(src["구분"]))
+    for tab, g in zip(st.tabs(groups), groups):
+        with tab:
+            st.dataframe(src[src["구분"] == g].drop(columns="구분"), hide_index=True, use_container_width=True,
+                         column_config={"링크": st.column_config.LinkColumn("링크", display_text="열기")})
+    st.caption("목록은 `config/data_sources.yaml`에 있습니다. 키는 `.env` 또는 Streamlit Secrets에 넣습니다.")
+
 st.subheader("값별 실측·가정 현황")
 st.dataframe(cal.assumption_table(), hide_index=True, use_container_width=True)
 st.info("처리 시간, 전담관 인원·가용률, 위원회 개최 간격은 공개 자료가 없어 가정값입니다. "
@@ -97,3 +108,31 @@ if police is not None and not police.empty:
     st.caption(f"출처: 경기데이터드림 「{gg_data.SERVICES['police']['title']}」 ({len(police)}곳). "
                "교원 대상 아동학대 신고가 접수·조사되는 관서의 분포로, 교육지원청과 경찰 협조 부담을 가늠하는 참고값입니다. "
                "시뮬레이터의 처리시간에는 아직 넣지 않았습니다.")
+
+st.subheader("국회 법률안 (ASSEMBLY_KEY)")
+from collector import assembly  # noqa: E402
+from collector.pipeline import load_sources  # noqa: E402
+
+
+@st.cache_data(ttl=86400, show_spinner="열린국회정보에서 법률안을 받는 중…")
+def _bills() -> tuple[dict, list]:
+    status = assembly.check_key()
+    if not status["ok"]:
+        return status, []
+    return status, [d.to_dict() for d in assembly.cached_bills(load_sources().get("bills"))]
+
+
+as_status, bills = _bills()
+if as_status["ok"]:
+    st.success(f"열린국회정보 키가 정상 작동합니다. 교권 관련 법률안 {len(bills)}건을 근거 자료에 넣었습니다.")
+else:
+    st.warning(f"열린국회정보 키 확인 실패: {as_status['reason']}. `.env` 또는 Streamlit Secrets에 `ASSEMBLY_KEY`를 넣어 주세요.")
+if bills:
+    import pandas as pd  # noqa: E402
+    bt = pd.DataFrame([{"제안일": b["meta"].get("propose_dt"), "법률안": b["title"].split(" [")[0],
+                        "대표발의": b["meta"].get("proposer"), "단계": b["meta"].get("stage"), "링크": b["url"]}
+                       for b in bills])
+    st.dataframe(bt, hide_index=True, use_container_width=True,
+                 column_config={"링크": st.column_config.LinkColumn("링크", display_text="의안정보")})
+    st.caption("출처: 열린국회정보 「국회의원 발의법률안」, 「법률안 제안이유 및 주요내용」. 검색어는 `config/sources.yaml`의 `bills:`. "
+               "제안이유 본문은 근거 자료 검색에서 찾을 수 있습니다.")

@@ -44,8 +44,8 @@ def gg_key() -> str | None:
     return (os.environ.get("GG_DATA_KEY") or "").strip() or None
 
 
-def _parse(payload: dict, service: str) -> tuple[list[dict], int]:
-    """(행, 전체 건수). 오류 응답이면 GgDataError. 자료 없음(INFO-200)은 빈 목록."""
+def parse_openapi(payload: dict, service: str) -> tuple[list[dict], int]:
+    """(행, 전체 건수). 경기데이터드림·열린국회정보 공통 형식. 오류 응답이면 GgDataError, 자료 없음(INFO-200)은 빈 목록."""
     if "RESULT" in payload:  # 키 오류 등은 서비스명 없이 RESULT만 온다
         res = payload["RESULT"]
         if res.get("CODE") == "INFO-200":
@@ -67,8 +67,8 @@ def _parse(payload: dict, service: str) -> tuple[list[dict], int]:
 
 
 def fetch_rows(service: str, key: str | None, page_size: int = 1000, max_pages: int = 50,
-               client: httpx.Client | None = None, **params) -> list[dict]:
-    """서비스의 모든 행. key 가 None 이면 샘플 5건."""
+               client: httpx.Client | None = None, base: str = BASE, **params) -> list[dict]:
+    """서비스의 모든 행. key 가 None 이면 샘플 5건. base 를 바꾸면 열린국회정보에도 쓴다."""
     own = client is None
     client = client or httpx.Client(timeout=30.0, headers={"User-Agent": "Mozilla/5.0 (research-collector)"})
     try:
@@ -78,12 +78,12 @@ def fetch_rows(service: str, key: str | None, page_size: int = 1000, max_pages: 
             if key:
                 q["KEY"] = key
             try:
-                r = client.get(f"{BASE}/{service}", params=q)
+                r = client.get(f"{base}/{service}", params=q)
                 r.raise_for_status()
                 payload = r.json()
             except (httpx.HTTPError, ValueError) as e:  # 예외 메시지에 URL(키 포함)이 섞이지 않게
                 raise GgDataError(f"{service} 요청 실패 ({type(e).__name__})") from None
-            rows, total = _parse(payload, service)
+            rows, total = parse_openapi(payload, service)
             out.extend(rows)
             if not key or not rows or len(out) >= total:
                 break

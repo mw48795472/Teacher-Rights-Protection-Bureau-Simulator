@@ -178,3 +178,16 @@ def assumption_table() -> pd.DataFrame:
     out = pd.DataFrame(rows, columns=["항목", "팀 가정값", "실측값", "출처", "시뮬레이터"])
     out["출처"] = out["출처"].map(lambda s: ", ".join(source(k).get("title", k) for k in s.split(", ") if k) if s else "")
     return out
+
+
+DATA_SOURCES = ROOT / "config" / "data_sources.yaml"
+
+
+def data_sources_table() -> pd.DataFrame:
+    """config/data_sources.yaml 의 출처 목록 (실측 데이터 화면·README 표)."""
+    if not DATA_SOURCES.exists():
+        return pd.DataFrame()
+    rows = (yaml.safe_load(DATA_SOURCES.read_text(encoding="utf-8")) or {}).get("sources") or []
+    cols = {"group": "구분", "provider": "제공기관", "name": "데이터", "date": "기준일", "format": "형식",
+            "key": "키", "used_in": "쓰이는 곳", "url": "링크"}
+    return pd.DataFrame(rows)[list(cols)].rename(columns=cols)
