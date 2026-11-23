@@ -13,6 +13,8 @@ from sim.metrics import METRICS, summarize
 st.set_page_config(page_title="시뮬레이션", page_icon="🏫", layout="wide")
 llm_badge()
 st.title("시뮬레이션")
+st.caption("검증하는 가설: H1 통합 장치(Lawrence & Lorsch·Gulick) · H2 사안 유형(Thompson·Perrow) · "
+           "H3 환경 압력(Burns & Stalker) · H4 제도화(조례) · H5 인력 안정성(Van de Ven·Woodward). Home의 '가설과 검증' 참고.")
 
 
 def analysis(lines: list[str], title: str = "분석"):

@@ -12,6 +12,7 @@ from sim import insights
 st.set_page_config(page_title="에이전트 시뮬레이션", page_icon="🏫", layout="wide")
 llm_badge()
 st.title("에이전트 시뮬레이션")
+st.caption("검증하는 가설: H6 법적 권한과 공식 구조. 드라마식 강제 개입은 권한 초과로 막히고 조정 중심 구조만 제도 안에서 작동하는가.")
 st.caption("행위자 에이전트가 행동을 제안하면, 규제 컴플라이언스 에이전트가 법령·조례를 검색해 "
            "실행 전에 허용·조건부 허용·차단을 판정합니다.")
 
