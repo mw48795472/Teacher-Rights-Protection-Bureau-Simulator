@@ -142,6 +142,28 @@ def saved(name: str = "students_by_grade") -> pd.DataFrame:
     return pd.read_csv(p, dtype={"학교급코드": str}) if p.exists() else pd.DataFrame()
 
 
+_AUTO = {"tried": False, "note": ""}
+
+
+def students(fetch: bool = True, log=None) -> pd.DataFrame:
+    """시도×공시연도 학생 수. 저장 파일이 없고 키가 있으면 한 번 받아 저장한다(앱 첫 화면에서 자동).
+    실패하면 빈 표와 _AUTO['note']에 이유를 남긴다."""
+    df = saved()
+    if df.empty and fetch and schoolinfo_key() and not _AUTO["tried"]:
+        _AUTO["tried"] = True
+        notes: list[str] = []
+        try:
+            df = collect(log=notes.append).get("students_by_grade", pd.DataFrame())
+        except Exception as e:  # 화면을 막지 않는다
+            notes.append(f"{type(e).__name__}: {e}")
+            df = pd.DataFrame()
+        _AUTO["note"] = " / ".join(n for n in notes if "0행" not in n or df.empty)[:600]
+    out = students_by_sido(df)
+    if not df.empty and out.empty:
+        _AUTO["note"] = "받은 칸에서 시도·학생 수 칸을 찾지 못함. 받은 칸: " + ", ".join(map(str, df.columns[:40]))
+    return out
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="학교알리미 공시정보 Open API")
     ap.add_argument("--check", action="store_true")

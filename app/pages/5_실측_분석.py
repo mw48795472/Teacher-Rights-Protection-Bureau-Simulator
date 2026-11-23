@@ -199,15 +199,23 @@ with t7:
                                 title="시도별 학교폭력 심의 건수 (학생 1천 명당)").update_xaxes(dtick=1), width="stretch")
         st.caption("학교알리미 '학교폭력 심의 결과' 공시(전국 초·중·고 약 1만 2천 곳)를 시도별로 더했습니다. 4월 공시는 전 학년도 실적이라 "
                    "공시연도에서 1을 뺀 학년도로 표시합니다. 공시 원자료는 학교알리미 화면에만 있어 공개 집계(school-violence-map)에서 받았습니다.")
-        if (sv["학생수 기준"] == "2026 공시").any():
-            st.caption("학생 수는 2026 공시 기준이라 연도별 학생 수 변화는 반영하지 못합니다. Streamlit Secrets에 `SCHOOLINFO_KEY`를 넣고 "
-                       "`python -m collector.schoolinfo`를 돌리면 연도별 학생 수로 바뀝니다.")
+        if (sv["학생수 기준"] == "2026 공시").all():
+            st.caption("학생 수는 2026 공시 기준이라 연도별 학생 수 변화는 반영하지 못합니다. Streamlit Secrets에 `SCHOOLINFO_KEY`가 "
+                       "있으면 학교알리미에서 연도별 학생 수를 받아 바꿉니다(아래 '연결 상태').")
+        else:
+            st.caption("학생 수: 학교알리미 Open API로 받은 해당 연도 학생 수를 씁니다(없는 연도는 2026 공시 기준).")
     with st.expander("연결 상태 (학교알리미 Open API)"):
         from collector import schoolinfo as _si
         _ss = st.cache_data(ttl=3600, show_spinner=False)(_si.check)()
         st.write(("✅ " if _ss["ok"] else "⚠️ ") + _ss["reason"])
         if _ss.get("columns"):
             st.caption("응답 칸: " + ", ".join(map(str, _ss["columns"])))
+        if _si.schoolinfo_key():
+            _st = _si.students(fetch=False)
+            if not _st.empty:
+                st.write(f"✅ 연도별 학생 수 {len(_st)}행 사용 중 (공시연도 {', '.join(map(str, sorted(_st['공시연도'].unique())))})")
+            elif _si._AUTO["note"]:
+                st.write("⚠️ 학생 수 받기: " + _si._AUTO["note"])
         st.caption("학교알리미 Open API에는 학교폭력 심의 결과 항목이 없어, 이 키는 연도별 학생 수(분모)에만 씁니다.")
     vr = tr.victim_rate()
     if not vr.empty:
