@@ -122,9 +122,20 @@ st.markdown("- **교육지원청 위치**: 25개 교육지원청을 시청 부�
 # ── 전체 데이터 출처와 API 키 상태 ──
 import os  # noqa: E402
 
+import importlib  # noqa: E402
+import inspect  # noqa: E402
+
 from collector import assembly, gg_data  # noqa: E402
 from collector.pipeline import load_sources  # noqa: E402
-from sim.calibration import data_sources_table  # noqa: E402
+from sim import calibration  # noqa: E402
+
+# 배포 앱이 재시작 없이 새 코드를 받으면 이전에 불러온 모듈이 남아 있을 수 있다. 낡았으면 다시 읽는다.
+if not hasattr(calibration, "data_sources_table"):
+    calibration = importlib.reload(calibration)
+if "base" not in inspect.signature(gg_data.fetch_rows).parameters:
+    gg_data = importlib.reload(gg_data)
+    assembly = importlib.reload(assembly)
+data_sources_table = calibration.data_sources_table
 
 with st.expander("전체 데이터 출처 표"):
     src = data_sources_table()
