@@ -18,7 +18,7 @@ SYSTEM = """너는 조직이론 수업 팀 발표를 돕는 분석가다. 경기
 - 이론과 조문은 '근거 자료'에 있는 것만 인용하고, 문장 끝에 [1]처럼 자료 번호를 단다.
 - 수업 개념 두 가지(① 조직환경: 개방체계·상황이론, ② 분업과 조정)에 묶어 설명한다.
 - 처리시간·확률 대부분이 가정값이라는 점, 시뮬레이션은 실제 운영 효과의 증거가 아니라 이론의 논리를 보여주는 사고실험이라는 점을 마지막에 한 문장으로 밝힌다.
-- '팀 요약' 표시 자료를 인용하면 원문 확인이 필요하다고 짧게 덧붙인다.
+- '원문 확인 필요' 표시 자료를 인용할 때만 원문 확인이 필요하다고 짧게 덧붙인다. '요약·원문 링크' 자료에는 붙이지 않는다.
 형식: ## 핵심 결과 (3줄 이내) / ## 왜 이런 차이가 나는가 (개념①·②) / ## 실효성 조건과 연결 / ## 한계"""
 
 THEORY_QUERIES = [
@@ -77,7 +77,7 @@ def explain(summary: pd.DataFrame, base: str, target: str, retriever, context: s
     import anthropic
 
     evidence = "\n".join(
-        f"[{i}] {h.doc.title} (신뢰도 {h.doc.reliability}{'' if h.doc.verified else ', 팀 요약'}): {h.doc.text}"
+        f"[{i}] {h.doc.title} (신뢰도 {h.doc.reliability}{', ' + h.doc.source_tag if h.doc.source_tag else ''}): {h.doc.text}"
         for i, h in enumerate(hits, 1)
     )
     prompt = (

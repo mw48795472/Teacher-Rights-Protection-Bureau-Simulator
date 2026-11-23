@@ -28,7 +28,7 @@ class Hit:
 
     @property
     def citation(self) -> str:
-        tag = "" if self.doc.verified else " · 팀 요약, 원문 확인 필요"
+        tag = f" · {self.doc.source_tag}" if self.doc.source_tag else ""
         return f"[{self.doc.title}] 신뢰도 {self.doc.reliability}{tag}"
 
 
