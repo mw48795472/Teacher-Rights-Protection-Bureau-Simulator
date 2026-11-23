@@ -85,15 +85,51 @@ def teachers_table(rows: list[dict], item: str | None = None) -> pd.DataFrame:
     return df.groupby(["시도", "연도"], as_index=False)["교원수"].sum()
 
 
+def candidate_tables(t: dict, client=None) -> list[dict]:
+    """통계표 ID가 비어 있으면 KOSIS 검색으로 후보를 찾는다 (같은 기관, 이름에 '교원'과 '시도')."""
+    if t.get("tblId"):
+        return [{"ORG_ID": t.get("orgId", "334"), "TBL_ID": t["tblId"], "TBL_NM": t.get("tblNm", "")}]
+    out, seen = [], set()
+    for q in t.get("search") or ["시도별 교원수", "시도별 교원 현황"]:
+        for r in _get("statisticsSearch.do", client, searchNm=q):
+            nm = str(r.get("TBL_NM", ""))
+            if str(r.get("ORG_ID")) == str(t.get("orgId", "334")) and "교원" in nm and "시도" in nm \
+                    and r.get("TBL_ID") not in seen:
+                seen.add(r.get("TBL_ID"))
+                out.append(r)
+    return out
+
+
 def fetch_teachers(cfg: dict | None = None, client=None) -> pd.DataFrame:
+    """시도별 교원 수. 결과 표의 attrs['table'] 에 쓴 통계표 이름·ID를 남긴다."""
     cfg = cfg or (yaml.safe_load(CFG.read_text(encoding="utf-8")) if CFG.exists() else {})
     t = (cfg or {}).get("teachers") or {}
-    if not t.get("tblId"):
-        raise KosisError("config/kosis.yaml 에 teachers.tblId 가 없음 (--search 로 찾기)")
-    rows = _get("statisticsData.do", client, orgId=t.get("orgId", "334"), tblId=t["tblId"],
-                itmId=t.get("itmId", "ALL"), objL1="ALL", objL2=t.get("objL2", ""), prdSe="Y",
-                startPrdDe=str(t.get("start", 2019)), endPrdDe=str(t.get("end", 2025)))
-    return teachers_table(rows, t.get("item"))
+    cands = candidate_tables(t, client)
+    if not cands:
+        raise KosisError("시도별 교원 수 통계표를 찾지 못함 (config/kosis.yaml 에 tblId 기입 필요)")
+    for c in cands[:5]:
+        try:
+            rows = _get("statisticsData.do", client, orgId=c["ORG_ID"], tblId=c["TBL_ID"],
+                        itmId=t.get("itmId", "ALL"), objL1="ALL", objL2=t.get("objL2", "ALL"),
+                        prdSe="Y", startPrdDe=str(t.get("start", 2019)), endPrdDe=str(t.get("end", 2025)))
+        except KosisError:
+            continue
+        df = teachers_table(rows, t.get("item"))
+        if df["시도"].nunique() >= 10:
+            df.attrs["table"] = f"{c.get('TBL_NM', '')} ({c['ORG_ID']}/{c['TBL_ID']})"
+            return df
+    raise KosisError("후보 통계표에서 시도별 교원 수를 읽지 못함: " + ", ".join(str(c.get("TBL_ID")) for c in cands[:5]))
+
+
+def status() -> dict:
+    """화면 진단용: 키 유무와 교원 수를 받은 결과 (키 값은 담지 않음)."""
+    if not kosis_key():
+        return {"ok": False, "reason": "KOSIS_KEY 없음"}
+    try:
+        df = fetch_teachers()
+    except KosisError as e:
+        return {"ok": False, "reason": str(e)}
+    return {"ok": True, "reason": f"{len(df)}행", "table": df.attrs.get("table", "")}
 
 
 def main(argv=None) -> int:

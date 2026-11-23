@@ -34,6 +34,10 @@ with t1:
 
 with t2:
     tc = tr.sido_teachers()
+    with st.expander("연결 상태 (KOSIS)"):
+        from collector import kosis as _kosis
+        _ks = st.cache_data(ttl=3600, show_spinner=False)(_kosis.status)() if tc.empty else {"ok": True, "reason": f"교원 수 {len(tc)}행 사용 중"}
+        st.write(("✅ " if _ks["ok"] else "⚠️ ") + _ks["reason"] + (f" · {_ks['table']}" if _ks.get("table") else ""))
     if tc.empty:
         st.warning("시도별 교원 수 자료가 아직 없습니다. KESS(kess.kedi.re.kr)에서 시도별 교원 수를 받아 "
                    "`data/measured/sido_teachers.csv`(열: 시도, 연도, 교원수)로 넣거나, "
@@ -106,6 +110,12 @@ with t6:
     st.caption("시도교육청 재정 공시(지방교육재정알리미)에서 사업명에 교권·교육활동보호·교원치유가 들어간 행을 모읍니다. "
                "시도×연도 패널 분석에서 통제변수로 씁니다.")
     bd, status = _budget()
+    with st.expander("연결 상태 (지방교육재정알리미)"):
+        from collector import edufin as _edufin
+        _es = st.cache_data(ttl=3600, show_spinner=False)(_edufin.check)()
+        st.write(("✅ " if _es["ok"] else "⚠️ ") + _es["reason"])
+        if _es.get("columns"):
+            st.caption("응답 칸: " + ", ".join(map(str, _es["columns"])))
     if status == "no_key":
         st.warning("지방교육재정알리미 인증키가 없습니다. Streamlit Secrets에 `EDUFIN_KEY`를 넣으면 이 칸이 채워집니다.")
     elif status == "ok":
