@@ -1,13 +1,47 @@
 import pandas as pd
 import streamlit as st
+import yaml
 
-from common import llm_badge, neis_status, retriever, schools
+from common import ROOT, llm_badge, neis_status, retriever, schools
 from rag.answer import answer
 
 st.set_page_config(page_title="근거 자료", page_icon="🏫", layout="wide")
 llm_badge()
 st.title("근거 자료")
 st.caption("시뮬레이터의 각 행동이 인용하는 조례·정책·기사·이론 자료입니다.")
+
+st.subheader("주요 정책 자료 및 매뉴얼")
+RES = yaml.safe_load((ROOT / "config" / "resources.yaml").read_text(encoding="utf-8"))
+RES_DIR = ROOT / "data" / "resources"
+
+
+def resource_card(item: dict, icon: str, i: int):
+    with st.container(border=True):
+        st.markdown(f"{icon} **{item['title']}**" + (f"  \n<small>{item['org']}</small>" if item.get("org") else ""),
+                    unsafe_allow_html=True)
+        st.caption(item["desc"])
+        f = RES_DIR / item["file"] if item.get("file") else None
+        b1, b2 = st.columns(2)
+        if item.get("url"):
+            b1.link_button("원문 보기", item["url"], width="stretch")
+        if f and f.exists():
+            b2.download_button("파일 내려받기", f.read_bytes(), file_name=f.name, key=f"res-{icon}-{i}",
+                               width="stretch")
+        elif f and not item.get("url"):
+            st.caption(":orange[자료 필요: 공식 파일을 받으면 넣을 자리입니다.]")
+
+
+for (key, icon, label) in (("manuals", "📘", "매뉴얼·안내"), ("laws", "⚖️", "법령 정보"), ("forms", "📝", "공식 서식")):
+    st.markdown(f"#### {icon} {label}")
+    items = RES.get(key, [])
+    cols = st.columns(3)
+    for i, item in enumerate(items):
+        with cols[i % 3]:
+            resource_card(item, icon, i)
+st.caption("링크는 국가법령정보센터와 경기교권보호지원센터 공식 페이지입니다. 서식·매뉴얼 파일은 "
+           "`data/resources/`에 넣으면 내려받기 버튼이 생깁니다.")
+
+st.subheader("근거 자료 검색")
 
 q = st.text_input("질문", "전담관이 교육활동 침해 여부를 직접 판단할 수 있나요?")
 k = st.slider("가져올 자료 수", 1, 10, 4)
