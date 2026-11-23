@@ -184,15 +184,16 @@ def collect_live(log=print, only: set[str] | None = None) -> list[Document]:
                                   attachments=b.get("attachments", True), log=log)
 
     if "files" in only:
-        from .files import collect_inbox, load_entry
+        from .files import chunk, collect_inbox, load_entry
         for f in (src.get("files") or []):
             try:
                 d = load_entry(f, ROOT)
-                log(f"[파일] {d.title[:40]} ({len(d.text)}자)")
-                docs += _tag([d], f)
+                parts = chunk(d)
+                log(f"[파일] {d.title[:40]} ({len(d.text)}자, {len(parts)}개로 나눔)")
+                docs += _tag(parts, f)
             except Exception as e:
                 log(f"[파일] {f.get('url') or f.get('path')} 실패: {e}")
-        docs += collect_inbox(INBOX, log=log)
+        docs += [p for d in collect_inbox(INBOX, log=log) for p in chunk(d)]
 
     # 같은 문서가 게시판 검색과 pages 양쪽에서 들어오면 하나만 남긴다(replaces 가 있는 쪽 우선).
     uniq: dict[str, Document] = {}

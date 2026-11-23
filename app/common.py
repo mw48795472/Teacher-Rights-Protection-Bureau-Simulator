@@ -64,13 +64,15 @@ def schools_enriched() -> pd.DataFrame:
 
 
 def offices() -> tuple:
-    return tuple(sorted(office_weights(schools()).items()))
+    """교육지원청별 사안 비중. 실측 교원 수(2025.4.)가 있으면 교원 수, 없으면 학교 수에 비례."""
+    from sim.calibration import office_teacher_weights
+    return tuple(sorted((office_teacher_weights() or office_weights(schools())).items()))
 
 
 def simulate(key: str, days: int, rate: float, seed: int, surge_day, surge_mult: float,
              overrides: tuple = (), scenario: tuple = (), capacity: int = 6) -> tuple[pd.DataFrame, dict]:
     """(사안별 결과표, 시나리오 사안의 로그 {label: trace}).
-    사안은 경기도 학교 수 비중대로 각 교육지원청 관할에서 생기고, 그 교육지원청 위원회로 간다."""
+    사안은 교육지원청별 교원 수(없으면 학교 수) 비중대로 각 관할에서 생기고, 그 교육지원청 위원회로 간다."""
     return _simulate(key, days, rate, seed, surge_day, surge_mult, overrides, scenario, offices(), capacity)
 
 
