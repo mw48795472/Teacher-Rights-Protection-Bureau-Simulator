@@ -22,8 +22,11 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 BASE = "https://www.schoolinfo.go.kr/openApi.do"
+BASES = [BASE, "http://www.schoolinfo.go.kr/openApi.do"]   # 이용안내 예시는 http. https가 막히면 http로 한 번 더
+TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 CFG = ROOT / "config" / "schoolinfo.yaml"
 OUT = ROOT / "data" / "measured" / "schoolinfo"
+SIDO_FILE = "students_by_sido.csv"   # 시도×공시연도 학생 수 (작아서 저장소에 커밋해 쓰는 파일)
 SIDO_NAMES = ["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북",
               "전남", "경북", "경남", "제주", "충청북", "충청남", "전라북", "전라남", "경상북", "경상남", "전남광주"]
 LONG = {"충청북": "충북", "충청남": "충남", "전라북": "전북", "전라남": "전남", "경상북": "경북", "경상남": "경남"}
@@ -31,6 +34,10 @@ LONG = {"충청북": "충북", "충청남": "충남", "전라북": "전북", "�
 
 class SchoolinfoError(RuntimeError):
     pass
+
+
+class SchoolinfoUnreachable(SchoolinfoError):
+    """서버에 아예 닿지 않음 (해외 서버에서 접속 차단 등). 남은 요청은 하지 않는다."""
 
 
 def schoolinfo_key() -> str | None:
@@ -47,15 +54,24 @@ def fetch(api_type: str, year: int, kind: str, key: str | None = None, client: h
     if not key:
         raise SchoolinfoError("SCHOOLINFO_KEY 없음")
     own = client is None
-    client = client or httpx.Client(timeout=60.0, headers={"User-Agent": "Mozilla/5.0 (research-collector)"})
+    client = client or httpx.Client(timeout=TIMEOUT, headers={"User-Agent": "Mozilla/5.0 (research-collector)"})
     try:
         q = {"apiKey": key, "apiType": api_type, "pbanYr": str(year), "schulKndCode": kind, **params}
-        try:
-            r = client.get(BASE, params=q)
-            r.raise_for_status()
-        except httpx.HTTPError as e:  # URL(키 포함)이 메시지에 섞이지 않게
-            code = f" HTTP {e.response.status_code}" if isinstance(e, httpx.HTTPStatusError) else ""
-            raise SchoolinfoError(f"apiType {api_type} 요청 실패 ({type(e).__name__}{code})") from None
+        r, net_errors = None, []
+        for base in BASES:
+            try:
+                r = client.get(base, params=q)
+                r.raise_for_status()
+                break
+            except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ProxyError) as e:
+                net_errors.append(f"{base.split(':')[0]} {type(e).__name__}")
+                r = None
+            except httpx.HTTPError as e:  # URL(키 포함)이 메시지에 섞이지 않게
+                code = f" HTTP {e.response.status_code}" if isinstance(e, httpx.HTTPStatusError) else ""
+                raise SchoolinfoError(f"apiType {api_type} 요청 실패 ({type(e).__name__}{code})") from None
+        if r is None:
+            raise SchoolinfoUnreachable(f"학교알리미 서버에 접속하지 못함 ({', '.join(net_errors)}). "
+                                        "앱 서버(해외)에서 접속이 막힌 것으로 보입니다")
         try:
             payload = r.json()
         except ValueError:
@@ -127,11 +143,18 @@ def collect(cfg: dict | None = None, log=print, client=None) -> dict[str, pd.Dat
             for kind in (cfg.get("school_kinds") or {"02": "", "03": "", "04": ""}):
                 try:
                     frames.append(fetch(svc["apiType"], y, str(kind), client=client, **(svc.get("params") or {})))
+                except SchoolinfoUnreachable as e:
+                    log(f"[학교알리미] {e}")
+                    return {**got, name: pd.DataFrame()}
                 except SchoolinfoError as e:
                     log(f"[학교알리미] {name} {y} {kind}: {e}")
         df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         if not df.empty:
             df.to_csv(OUT / f"{name}.csv", index=False, encoding="utf-8-sig")
+            agg = students_by_sido(df)
+            if not agg.empty:
+                agg.to_csv(OUT / SIDO_FILE, index=False, encoding="utf-8-sig")
+                log(f"[학교알리미] 시도별 학생 수 {len(agg)}행 → {OUT / SIDO_FILE} (이 파일을 커밋하면 앱이 씁니다)")
         log(f"[학교알리미] {name}: {len(df):,}행")
         got[name] = df
     return got
@@ -148,6 +171,9 @@ _AUTO = {"tried": False, "note": ""}
 def students(fetch: bool = True, log=None) -> pd.DataFrame:
     """시도×공시연도 학생 수. 저장 파일이 없고 키가 있으면 한 번 받아 저장한다(앱 첫 화면에서 자동).
     실패하면 빈 표와 _AUTO['note']에 이유를 남긴다."""
+    p = OUT / SIDO_FILE
+    if p.exists():   # PC에서 받아 커밋한 시도별 합계가 있으면 그것을 쓴다
+        return pd.read_csv(p)
     df = saved()
     if df.empty and fetch and schoolinfo_key() and not _AUTO["tried"]:
         _AUTO["tried"] = True
