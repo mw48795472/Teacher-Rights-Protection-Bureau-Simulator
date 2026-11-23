@@ -107,11 +107,13 @@ def test_assumption_table_marks_measured_and_assumed():
     assert t["출처"].str.contains("교육부").any()
 
 
-def test_dashboard_page_renders(monkeypatch):
+def test_evidence_page_renders_with_sources_and_key_status(monkeypatch):
     import sys
     from streamlit.testing.v1 import AppTest
+    for k in ("GG_DATA_KEY", "ASSEMBLY_KEY", "NEIS_KEY"):
+        monkeypatch.delenv(k, raising=False)
     monkeypatch.syspath_prepend(str(ROOT / "app"))
     sys.modules.pop("common", None)
-    at = AppTest.from_file(str(ROOT / "app" / "pages" / "5_실측_데이터.py"), default_timeout=60).run()
+    at = AppTest.from_file(str(ROOT / "app" / "pages" / "3_근거_자료.py"), default_timeout=60).run()
     assert not at.exception
-    assert any("실측" in t.value for t in at.title)
+    assert any(e.label == "API 키 연결 상태" for e in at.expander)
