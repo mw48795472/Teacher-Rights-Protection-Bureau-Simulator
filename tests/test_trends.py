@@ -159,3 +159,15 @@ def test_edufin_info_code_is_not_error(monkeypatch):
                                                               "list": rows}))
     pr = edufin.probe("opclTotal", [2024], client=c)
     assert pr["ok"] and len(pr["df"]) == 10
+
+
+def test_edufin_frame_and_committee_join():
+    raw = pd.DataFrame({"회계연도": [2024] * 17 + [2023] * 17,
+                        "ATPT_OFCDC_NM": [f"{s}교육청" for s in tr.SIDO_SHORT] * 2,
+                        "ITEM": ["세출"] * 34,
+                        "AMT": [f"{(i + 1) * 1_000_000_000_000:,}" for i in range(34)]})
+    fd, meta = tr.edufin_frame(raw)
+    assert meta["sido"] == "ATPT_OFCDC_NM" and "AMT" in meta["nums"] and fd["시도"].nunique() == 17
+    fis = tr.edufin_by_sido(fd, "AMT")
+    cv = tr.committee_vs_fiscal(fis, "AMT")
+    assert len(cv) == 17 and (cv["재정 기준 연도"] == 2024).all() and cv["심의 건수 / 재정 1조"].notna().all()
