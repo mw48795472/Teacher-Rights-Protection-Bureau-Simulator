@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = str(Path(__file__).resolve().parent.parent)
 PKGS = ("sim", "agents", "rag", "collector", "geo")
-TOP = ("i18n", "common")    # app/ 안의 공통 모듈: 마지막에 이 순서로 다시 읽는다
+TOP = ("i18n", "common", "case_trace")    # app/ 안의 공통 모듈: 마지막에 이 순서로 다시 읽는다
 FIRST = ("sim.cases", "sim.calibration", "sim.engine", "sim.metrics")
 _loaded: dict[str, float] = {}   # 모듈 이름 → 메모리에 있는 버전의 소스 파일 수정 시각
 
