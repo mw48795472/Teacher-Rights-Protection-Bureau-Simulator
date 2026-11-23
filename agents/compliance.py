@@ -124,6 +124,9 @@ def offline_verdict(actor: str, action: Action, history: list[str], r: Retriever
                            **{**base, "triggers": ["보호조치", "위원회"]})
         return Verdict(decision="허용", category="적법", cited_ids=[],
                        reason="정당한 민원·신고·소송 제기 권리에 해당한다.", **base)
+    if action.intent == "분쟁조정" and actor == "지역교권보호위원회":
+        return Verdict(decision="허용", category="적법", cited_ids=_cite(r, "지역교권보호위원회 침해 심의 조치 분쟁 조정"),
+                       reason="교원과 관련된 분쟁 조정은 지역교권보호위원회의 심의 사항이다.", **base)
     if action.intent == "위원회심의·조치" and actor == "지역교권보호위원회":
         return Verdict(decision="허용", category="적법", cited_ids=_cite(r, "지역교권보호위원회 침해 심의 조치"),
                        reason="교육활동 침해 여부 심의와 보호자 조치는 위원회의 권한이다.", **base)
@@ -147,4 +150,9 @@ OFFLINE_DUTY_QUERY = {
     "사후관리": "전담관 업무 사후 관리 교육활동 복귀",
     "사안종결": "전담관 업무 사후 관리 교육활동 복귀",
     "수사기관고발": "교육감 1호 사안 지정 학부모 형사 고발",
+    "분리조치": "즉시 분리 의사 확인서 분리",
+    "참고인진술": "관련자 의견서 참고인 진술서 발생보고서",
+    "사안조사": "사안 조사보고서 출석통지서 서면 의견서",
+    "의견서제출": "사안 조사보고서 출석통지서 서면 의견서",
+    "분쟁조정신청": "분쟁조정 신청서",
 }
