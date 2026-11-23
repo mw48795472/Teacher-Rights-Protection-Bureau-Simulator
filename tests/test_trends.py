@@ -1,4 +1,6 @@
 import sys
+
+import pandas as pd
 from pathlib import Path
 
 from sim import calibration as cal
@@ -18,8 +20,9 @@ def test_types_by_year_match_yearly_totals():
 
 def test_committee_totals_marks_2024_as_report():
     t = tr.committee_totals()
-    assert list(t["학년도"]) == [2019, 2020, 2021, 2022, 2023, 2024]
+    assert list(t["학년도"]) == [2019, 2020, 2021, 2022, 2023, 2024, 2025]
     assert "보도" in t.loc[t["학년도"] == 2024, "출처"].iloc[0]
+    assert t.loc[t["학년도"] == 2025, "건수"].iloc[0] == 4034
 
 
 def test_law5_compare_has_new_type():
@@ -55,4 +58,34 @@ def test_analysis_page_renders(monkeypatch):
     sys.modules.pop("common", None)
     at = AppTest.from_file(str(ROOT / "app" / "pages" / "5_실측_분석.py"), default_timeout=60).run()
     assert not at.exception
-    assert len(at.tabs) == 5
+    assert len(at.tabs) == 6
+
+
+def test_kosis_teachers_table_and_no_key(monkeypatch):
+    from collector import kosis
+    rows = [{"C1_NM": "경기도", "PRD_DE": "2024", "DT": "130000", "ITM_NM": "교원수"},
+            {"C1_NM": "전라북도", "PRD_DE": "2024", "DT": "20000", "ITM_NM": "교원수"},
+            {"C1_NM": "전국", "PRD_DE": "2024", "DT": "500000", "ITM_NM": "교원수"},
+            {"C1_NM": "경기도", "PRD_DE": "2024", "DT": "999", "ITM_NM": "학생수"}]
+    t = kosis.teachers_table(rows, "교원").set_index("시도")
+    assert t.loc["경기", "교원수"] == 130000 and t.loc["전북", "교원수"] == 20000 and "전국" not in t.index
+    monkeypatch.delenv("KOSIS_KEY", raising=False)
+    import pytest
+    with pytest.raises(kosis.KosisError):
+        kosis.search("교원")
+
+
+def test_edufin_parsing_and_keyword(monkeypatch):
+    from collector import edufin
+    payload = {"opclTotal": [{"head": [{"list_total_count": 3}]},
+                             {"row": [{"EDU_NM": "경기도교육청", "SBJ_NM": "교육활동보호 지원", "AMT": 100},
+                                      {"EDU_NM": "경기도교육청", "SBJ_NM": "학교시설", "AMT": 900},
+                                      {"EDU_NM": "인천광역시교육청", "SBJ_NM": "교원치유 지원", "AMT": 50}]}]}
+    rows = edufin._rows(payload)
+    assert len(rows) == 3
+    hit = edufin.keyword_rows(pd.DataFrame(rows), ["교권", "교육활동보호", "교원치유"])
+    assert len(hit) == 2
+    assert edufin._error({"RESULT": {"CODE": "ERROR-290", "MESSAGE": "인증키가 유효하지 않습니다."}})
+    monkeypatch.delenv("EDUFIN_KEY", raising=False)
+    assert edufin.check()["ok"] is False
+    assert tr.edufin_budget(fetch=False)[1] in ("no_key", "ok", "no_keyword")

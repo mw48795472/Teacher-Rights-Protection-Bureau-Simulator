@@ -25,13 +25,13 @@ SIDO_SHORT = {"서울": "서울", "부산": "부산", "대구": "대구", "인�
 
 # ── 1. 추세 ──
 def committee_totals() -> pd.DataFrame:
-    """연도별 교보위 심의 건수. 2019~2023 교육부 원자료(A), 2024는 의원실 발표 보도(C)."""
+    """연도별 교보위 심의 건수. 2019~2023 교육부 원자료(A), 2024~2025는 KEDI 교육정책포럼 수치 보도."""
     m = cal.load()
     rows = [{"학년도": int(y), "건수": int(v), "출처": "교육부 원자료"}
             for y, v in m["committee_cases"]["by_year"].items()]
-    y24 = ((m.get("committee_by_sido") or {}).get("y2024") or {}).get("total")
-    if y24:
-        rows.append({"학년도": 2024, "건수": int(y24), "출처": "의원실 발표 보도"})
+    recent = (m.get("committee_cases_recent") or {}).get("by_year") or {}
+    for y, v in recent.items():
+        rows.append({"학년도": int(y), "건수": int(v), "출처": "KEDI 교육정책포럼 (보도)"})
     return pd.DataFrame(rows).sort_values("학년도", ignore_index=True)
 
 
@@ -63,9 +63,18 @@ def law5_compare() -> pd.DataFrame:
 
 # ── 2·3. 시도 비교와 교원 1천 명당 ──
 def sido_teachers() -> pd.DataFrame:
-    """KESS 시도별 교원 수 (data/measured/sido_teachers.csv: 시도, 연도, 교원수). 없으면 빈 표."""
+    """KESS 시도별 교원 수 (data/measured/sido_teachers.csv: 시도, 연도, 교원수).
+    파일이 없고 KOSIS_KEY·config/kosis.yaml 통계표 ID가 있으면 KOSIS에서 받아 저장한다. 둘 다 없으면 빈 표."""
     if not SIDO_TEACHERS.exists():
-        return pd.DataFrame(columns=["시도", "연도", "교원수"])
+        from collector import kosis
+        try:
+            df = kosis.fetch_teachers() if kosis.kosis_key() else None
+        except Exception:  # 화면을 막지 않는다
+            df = None
+        if df is None or df.empty:
+            return pd.DataFrame(columns=["시도", "연도", "교원수"])
+        SIDO_TEACHERS.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(SIDO_TEACHERS, index=False, encoding="utf-8-sig")
     from collector.measured import read_kr_csv
     df = read_kr_csv(SIDO_TEACHERS)
     df["시도"] = df["시도"].astype(str).str[:2].map(SIDO_SHORT)
@@ -161,3 +170,26 @@ def launch_effect(launch: str = "2026-08-24") -> pd.DataFrame:
     d["시기"] = d["접수일"].map(lambda x: "출범 후" if x >= pd.Timestamp(launch) else "출범 전")
     return d.groupby("시기")["처리일수"].describe()[["count", "mean", "50%", "max"]] \
         .rename(columns={"count": "사안 수", "mean": "평균(일)", "50%": "중앙값(일)", "max": "최대(일)"}).reset_index()
+
+
+def edufin_budget(fetch: bool = True) -> tuple[pd.DataFrame, str]:
+    """지방교육재정알리미 공시에서 교권보호 관련 사업 행. (표, 상태 문구).
+    저장 파일(data/measured/edufin/*.csv)이 있으면 그것을, 없고 EDUFIN_KEY가 있으면 받아서 쓴다."""
+    from collector import edufin
+    cfg = edufin.config()
+    names = [s.get("name") or s["requestType"] for s in cfg.get("services") or []]
+    frames = {n: edufin.saved(n) for n in names}
+    if all(f.empty for f in frames.values()):
+        if not edufin.edufin_key():
+            return pd.DataFrame(), "no_key"
+        if not fetch:
+            return pd.DataFrame(), "not_fetched"
+        try:
+            frames = edufin.collect(cfg, log=lambda *_: None)
+        except Exception as e:  # 화면을 막지 않는다
+            return pd.DataFrame(), f"error: {type(e).__name__}"
+        if all(f.empty for f in frames.values()):
+            return pd.DataFrame(), "empty"
+    allrows = pd.concat([f for f in frames.values() if not f.empty], ignore_index=True)
+    hit = edufin.keyword_rows(allrows, cfg.get("keywords") or ["교권"])
+    return (hit, "ok") if not hit.empty else (allrows, "no_keyword")
