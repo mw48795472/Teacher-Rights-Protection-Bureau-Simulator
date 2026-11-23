@@ -342,3 +342,23 @@ def test_schoolinfo_students_auto_fetch_once(monkeypatch, tmp_path):
     assert schoolinfo.students().set_index("시도")["학생수"]["경기"] == 10
     schoolinfo.students()
     assert len(calls) == 1
+
+
+def test_schoolinfo_unreachable_stops_early_and_uses_committed_file(monkeypatch, tmp_path):
+    import httpx
+    from collector import schoolinfo
+    calls = []
+
+    def handler(req):
+        calls.append(str(req.url).split(":")[0])
+        raise httpx.ConnectTimeout("timeout", request=req)
+    monkeypatch.setenv("SCHOOLINFO_KEY", "k")
+    monkeypatch.setattr(schoolinfo, "OUT", tmp_path)
+    notes = []
+    with httpx.Client(transport=httpx.MockTransport(handler)) as c:
+        got = schoolinfo.collect(log=notes.append, client=c)
+    assert got["students_by_grade"].empty
+    assert calls == ["https", "http"]          # https 다음 http 한 번, 그 뒤로는 요청하지 않음
+    assert "접속하지 못함" in notes[0]
+    (tmp_path / schoolinfo.SIDO_FILE).write_text("시도,공시연도,학생수\n경기,2024,1000\n", encoding="utf-8")
+    assert schoolinfo.students().iloc[0]["학생수"] == 1000
