@@ -301,3 +301,28 @@ def test_kosis_level_failure_reason(monkeypatch):
     import pytest
     with pytest.raises(kosis.KosisError, match="초등학교\\(101/DT_A: 20"):
         kosis.fetch_teachers({"teachers": {"levels": [{"name": "초등학교", "tables": [{"orgId": "101", "tblId": "DT_A"}]}]}})
+
+
+def test_kess_high_school_file_fallback(monkeypatch):
+    """KOSIS 에서 고등학교 표를 못 읽으면 KESS 파일('소계' 행)로 채운다."""
+    from collector import kosis
+    t = kosis.read_kess_file("data/measured/raw/KESS_고등학교_시도별_교원수_1965-2026.xlsx").set_index(["시도", "연도"])
+    assert t.loc[("서울", 2024), "교원수"] == 20184 and t.loc[("경기", 2024), "교원수"] == 32811
+    assert t.xs(2024, level="연도")["교원수"].sum() == 129436 and ("세종", 1965) not in t.index
+    monkeypatch.setenv("KOSIS_KEY", "x")
+    full = list({v: k for k, v in kosis.SIDO_FULL.items()}.values())
+
+    def fake(path, client=None, **p):
+        if path == kosis.DATA and p["tblId"] == "DT_E":
+            return [{"C1_NM": n, "PRD_DE": "2024", "DT": "100", "ITM_NM": "교원수"} for n in full]
+        if path == kosis.DATA:
+            raise kosis.KosisError("20: 필수요청변수값이 누락되었습니다.")
+        return []
+    monkeypatch.setattr(kosis, "_get", fake)
+    df = kosis.fetch_teachers({"teachers": {"levels": [
+        {"name": "초등학교", "tables": [{"orgId": "101", "tblId": "DT_E"}]},
+        {"name": "고등학교", "tables": [{"orgId": "101", "tblId": "DT_H"}],
+         "file": "data/measured/raw/KESS_고등학교_시도별_교원수_1965-2026.xlsx", "file_label": "KESS 파일"}]}})
+    s = df.set_index("시도")
+    assert list(df["연도"].unique()) == [2024] and s.loc["서울", "교원수"] == 100 + 20184
+    assert "고등학교 KESS 파일" in df.attrs["table"] and "KESS 파일" in df["출처"].iloc[0]
