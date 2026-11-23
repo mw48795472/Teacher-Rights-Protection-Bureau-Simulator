@@ -1,3 +1,4 @@
+import pandas as pd
 import streamlit as st
 
 from common import llm_badge, retriever, structures
@@ -24,12 +25,55 @@ st.markdown(
 )
 
 st.subheader("비교할 조직 구조")
-cols = st.columns(len(structures()))
-for col, (k, s) in zip(cols, structures().items()):
-    with col:
+st.caption("시뮬레이션의 A·B0·B·C는 아래 네 가지 조직 방식을 뜻합니다. 같은 사안 흐름을 네 구조에 똑같이 넣어 비교합니다.")
+S = structures()
+for k, s in S.items():
+    with st.container(border=True):
         st.markdown(f"**{s['name']}**")
-        st.caption(s["description"])
-        st.markdown(f"<small>이론: {s['theory']}</small>", unsafe_allow_html=True)
+        st.markdown(s.get("definition", s["description"]))
+        st.caption(f"이론: {s['theory']}")
+
+
+def _row(s: dict) -> dict:
+    p = s["params"]
+    integ = s["kind"] == "integrated"
+    yn = lambda v: "있음" if v else "없음"
+    return {
+        "구조": s.get("short", s["name"]),
+        "접수 창구": "통합 접수 창구 한 곳 (경기: 교권보호 119)" if integ else "센터·법률·행정 창구를 교사가 각각",
+        "사안 조정자": "상근 전담관 (주 담당)" if integ else "없음 (교사가 직접)",
+        "상근 전담관": f"{p['regular_officers']}명" if integ else "-",
+        "비상근 전문가": f"{p['nonregular_officers']}명" if integ else "-",
+        "비상근 즉시 응답": f"{p['nonregular_availability']:.0%}" if integ else "-",
+        "교육감 직속": yn(p.get("escalation")),
+        "연계절차 (제17조)": yn(p.get("linkage_procedure")),
+        "업무매뉴얼 (제25조)": yn(p.get("manual")),
+        "위원회 개최 간격": f"{p['committee_interval_days']}근무일",
+    }
+
+
+st.markdown("**한눈에 비교**")
+st.dataframe(pd.DataFrame([_row(s) for s in S.values()]).set_index("구조").T, width="stretch")
+st.caption("인원·응답 비율·개최 간격 중 출처가 없는 값은 가정값이며 시뮬레이션 사이드바에서 바꿀 수 있습니다.")
+
+with st.expander("용어 정리"):
+    st.markdown(
+        """
+| 용어 | 뜻 |
+|---|---|
+| 교권보호단 | 경기도교육청이 2026년 교육감 직속으로 만든 교권보호 조직. 교육감이 단장 |
+| 교권보호 119 | 교권보호단의 접수 창구. 사안을 받아 긴급성·전문성에 따라 분류하고 전담관에게 배정 |
+| 상근 전담관 | 교육전문직. 사안의 주 담당으로 피해 교원과 1:1로 연결되어 상담부터 사후 관리까지 맡음 |
+| 비상근 전담관 | 변호사·상담 전문가 등 외부 전문가. 본업이 있어 필요할 때 사안에 합류 |
+| 지역교권보호지원센터 | 기존부터 있던 상담·법률 안내 기관 |
+| 지역교권보호위원회 | 교육활동 침해 여부를 심의하고 침해 학생·보호자 조치를 의결. 전담관에게는 이 권한이 없음 (조례 제15조) |
+| 교육지원청 | 시·군 단위 교육행정 기관. 경기도에는 25곳이 있고 관할 학교를 지도·감독 |
+| 1호 사안 | 교육감이 1호 사안으로 지정하고 학부모를 형사 고발한 부천 사안 (경인일보 8.10 보도) |
+| 연계절차 (조례 제17조) | 교권보호단과 기존 센터·기관 사이의 업무 연계 절차. 없으면 같은 사안을 두 기관이 따로 접수 |
+| 업무매뉴얼 (조례 제25조) | 접수·배정 기준을 통일한 매뉴얼. 없으면 분류 착오가 늘어남 |
+| 드라마식 교권보호국 | 에이전트 시뮬레이션에만 나오는 가상 모델. 요원이 현장을 직접 제압하는 방식이 현실 법 체계에서 어디서 막히는지 보기 위한 비교군 |
+"""
+    )
 
 st.subheader("메뉴")
 st.markdown(

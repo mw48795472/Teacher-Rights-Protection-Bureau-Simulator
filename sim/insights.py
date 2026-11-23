@@ -148,6 +148,7 @@ def agent_runs(metrics: dict[str, dict]) -> list[str]:
                        "들어가면 판정이 더 분명해집니다.")
     blocked = [n for n, m in metrics.items() if m["권한 초과"]]
     if blocked:
-        out.append(f"권한 초과로 막힌 행동이 나온 구조: {', '.join(blocked)}. 공적 주체가 법령상 권한 밖의 행동"
-                   "(직접 조사·판정, 물리적 제지)을 하려 하면 컴플라이언스가 권한 있는 기관으로 돌려보냅니다.")
+        out.append(f"권한 초과 판정이 나온 구조: {', '.join(blocked)}. 공적 주체가 법령상 권한 밖의 행동"
+                   "(직접 조사·판정, 위압적 제지)을 하려 하면 컴플라이언스가 차단하거나, 권한 안의 부분만 조건부로 "
+                   "허용하고 나머지는 권한 있는 기관에 넘기게 합니다.")
     return out

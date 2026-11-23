@@ -34,4 +34,4 @@ def test_agent_runs():
     m = {"행동 수": 6, "차단": 2, "조건부 허용": 1, "교육활동 침해 탐지": 1, "권한 초과": 2, "근거 불충분": 3,
          "피해 교원이 직접 한 행동": 1, "처리 주체 없는 후속 절차": 0, "종결": False}
     out = insights.agent_runs({"드라마식": m})
-    assert "차단 2개" in out[0] and any("근거 불충분" in x for x in out) and any("권한 초과로" in x for x in out)
+    assert "차단 2개" in out[0] and any("근거 불충분" in x for x in out) and any("권한 초과 판정이" in x for x in out)
