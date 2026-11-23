@@ -179,3 +179,14 @@ def test_fiscal_regression():
     reg, rt = tr.fiscal_regression(cv, "AMT")
     assert reg["n"] == 17 and 4.5 < reg["slope"] < 5.5 and reg["r2"] > 0.9 and reg["p"] < 0.001
     assert "잔차 (실제−예측)" in rt and len(rt) == 17
+
+
+def test_kosis_url_and_relaxed_search(monkeypatch):
+    from collector import kosis
+    assert kosis.candidate_tables({"url": "https://kosis.kr/statHtml/statHtml.do?orgId=101&tblId=DT_1YL20711"})[0]["TBL_ID"] == "DT_1YL20711"
+    monkeypatch.setenv("KOSIS_KEY", "x")
+    monkeypatch.setattr(kosis, "_get", lambda path, client=None, **p: [
+        {"ORG_ID": "101", "TBL_ID": "DT_X", "TBL_NM": "시·도별 학교급별 교원수"},
+        {"ORG_ID": "334", "TBL_ID": "DT_Y", "TBL_NM": "학교급별 학생수"}])
+    c = kosis.candidate_tables({"orgId": "334"})
+    assert [r["TBL_ID"] for r in c] == ["DT_X"] and "DT_Y" in kosis.hits_summary()
