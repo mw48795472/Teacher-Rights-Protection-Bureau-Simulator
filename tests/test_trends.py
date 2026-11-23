@@ -1,4 +1,6 @@
 import sys
+
+import pandas as pd
 from pathlib import Path
 
 from sim import calibration as cal
@@ -56,7 +58,7 @@ def test_analysis_page_renders(monkeypatch):
     sys.modules.pop("common", None)
     at = AppTest.from_file(str(ROOT / "app" / "pages" / "5_실측_분석.py"), default_timeout=60).run()
     assert not at.exception
-    assert len(at.tabs) == 5
+    assert len(at.tabs) == 6
 
 
 def test_kosis_teachers_table_and_no_key(monkeypatch):
@@ -71,3 +73,19 @@ def test_kosis_teachers_table_and_no_key(monkeypatch):
     import pytest
     with pytest.raises(kosis.KosisError):
         kosis.search("교원")
+
+
+def test_edufin_parsing_and_keyword(monkeypatch):
+    from collector import edufin
+    payload = {"opclTotal": [{"head": [{"list_total_count": 3}]},
+                             {"row": [{"EDU_NM": "경기도교육청", "SBJ_NM": "교육활동보호 지원", "AMT": 100},
+                                      {"EDU_NM": "경기도교육청", "SBJ_NM": "학교시설", "AMT": 900},
+                                      {"EDU_NM": "인천광역시교육청", "SBJ_NM": "교원치유 지원", "AMT": 50}]}]}
+    rows = edufin._rows(payload)
+    assert len(rows) == 3
+    hit = edufin.keyword_rows(pd.DataFrame(rows), ["교권", "교육활동보호", "교원치유"])
+    assert len(hit) == 2
+    assert edufin._error({"RESULT": {"CODE": "ERROR-290", "MESSAGE": "인증키가 유효하지 않습니다."}})
+    monkeypatch.delenv("EDUFIN_KEY", raising=False)
+    assert edufin.check()["ok"] is False
+    assert tr.edufin_budget(fetch=False)[1] in ("no_key", "ok", "no_keyword")

@@ -170,3 +170,26 @@ def launch_effect(launch: str = "2026-08-24") -> pd.DataFrame:
     d["시기"] = d["접수일"].map(lambda x: "출범 후" if x >= pd.Timestamp(launch) else "출범 전")
     return d.groupby("시기")["처리일수"].describe()[["count", "mean", "50%", "max"]] \
         .rename(columns={"count": "사안 수", "mean": "평균(일)", "50%": "중앙값(일)", "max": "최대(일)"}).reset_index()
+
+
+def edufin_budget(fetch: bool = True) -> tuple[pd.DataFrame, str]:
+    """지방교육재정알리미 공시에서 교권보호 관련 사업 행. (표, 상태 문구).
+    저장 파일(data/measured/edufin/*.csv)이 있으면 그것을, 없고 EDUFIN_KEY가 있으면 받아서 쓴다."""
+    from collector import edufin
+    cfg = edufin.config()
+    names = [s.get("name") or s["requestType"] for s in cfg.get("services") or []]
+    frames = {n: edufin.saved(n) for n in names}
+    if all(f.empty for f in frames.values()):
+        if not edufin.edufin_key():
+            return pd.DataFrame(), "no_key"
+        if not fetch:
+            return pd.DataFrame(), "not_fetched"
+        try:
+            frames = edufin.collect(cfg, log=lambda *_: None)
+        except Exception as e:  # 화면을 막지 않는다
+            return pd.DataFrame(), f"error: {type(e).__name__}"
+        if all(f.empty for f in frames.values()):
+            return pd.DataFrame(), "empty"
+    allrows = pd.concat([f for f in frames.values() if not f.empty], ignore_index=True)
+    hit = edufin.keyword_rows(allrows, cfg.get("keywords") or ["교권"])
+    return (hit, "ok") if not hit.empty else (allrows, "no_keyword")

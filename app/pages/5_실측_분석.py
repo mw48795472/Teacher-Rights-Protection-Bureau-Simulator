@@ -14,8 +14,8 @@ st.caption("저장소에 있는 공공 원자료만으로 계산합니다. 가�
            "자료가 아직 없는 분석은 자리만 두고, 파일이 들어오면 자동으로 채워집니다.")
 data_label("real", "이 화면의 모든 값은 공공 원자료 또는 보도된 공식 집계입니다. 보도 값은 신뢰도 C로 따로 표시합니다.")
 
-t1, t2, t3, t4, t5 = st.tabs(["① 추세·교권5법 전후", "② 교원 1천 명당", "③ 시도 비교 (2024)",
-                              "④ 아동학대 신고 흐름", "⑤ 교권보호단 출범 효과"])
+t1, t2, t3, t4, t5, t6 = st.tabs(["① 추세·교권5법 전후", "② 교원 1천 명당", "③ 시도 비교 (2024)",
+                                  "④ 아동학대 신고 흐름", "⑤ 교권보호단 출범 효과", "⑥ 교권보호 예산"])
 
 with t1:
     tot = tr.committee_totals()
@@ -95,3 +95,26 @@ with t5:
     else:
         st.dataframe(le, hide_index=True, use_container_width=True)
         st.caption("출처: 경기도교육청 정보공개청구 답변.")
+
+
+@st.cache_data(ttl=86400, show_spinner="지방교육재정알리미에서 받는 중…")
+def _budget():
+    return tr.edufin_budget()
+
+
+with t6:
+    st.caption("시도교육청 재정 공시(지방교육재정알리미)에서 사업명에 교권·교육활동보호·교원치유가 들어간 행을 모읍니다. "
+               "시도×연도 패널 분석에서 통제변수로 씁니다.")
+    bd, status = _budget()
+    if status == "no_key":
+        st.warning("지방교육재정알리미 인증키가 없습니다. Streamlit Secrets에 `EDUFIN_KEY`를 넣으면 이 칸이 채워집니다.")
+    elif status == "ok":
+        st.dataframe(bd, hide_index=True, use_container_width=True)
+        st.caption("출처: 지방교육재정알리미 Open API (한국교육학술정보원). 사업명 키워드로 거른 값이라 "
+                   "다른 이름으로 편성된 교권보호 예산은 빠질 수 있습니다.")
+    elif status == "no_keyword":
+        st.info("공시 자료는 받았지만 교권 관련 사업명이 보이지 않습니다. 지금 받는 서비스(공시 총괄)에는 사업별 세출이 "
+                "없을 수 있어, 사업별 세출 서비스 이름을 `config/edufin.yaml`에 추가해야 합니다. 받은 칸은 아래와 같습니다.")
+        st.write(", ".join(map(str, bd.columns)))
+    else:
+        st.warning(f"지방교육재정알리미에서 자료를 받지 못했습니다 ({status}). 키가 승인됐는지 확인해 주세요.")

@@ -1,0 +1,174 @@
+"""지방교육재정알리미(eduinfo.go.kr) Open API: 시도교육청 재정 공시 → 교권보호 관련 예산.
+
+키(EDUFIN_KEY)는 .env 또는 Streamlit Secrets에 넣는다. 키 값은 화면·로그에 찍지 않는다.
+요청 형식 (eduinfo.go.kr 'API 이용안내'):
+  http://openapi.eduinfo.go.kr/openApi.do?requestType={서비스}&key=…&Type=json&pIndex=1&pSize=100&YMQ={회계연도}
+제공 서비스와 출력 칸 이름은 로그인한 '서비스별 OPEN API 메타 정보' 화면에만 나와서, 서비스 이름은
+config/edufin.yaml 에 적고 응답의 행을 그대로 저장한다. 그다음 사업명 칸에서 교권·교육활동보호 키워드로 거른다.
+
+    python -m collector.edufin --check     # 키·서비스가 통하는지, 응답 칸 이름 보기
+    python -m collector.edufin             # data/measured/edufin/{서비스}.csv 저장
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from pathlib import Path
+
+import httpx
+import pandas as pd
+import yaml
+
+ROOT = Path(__file__).resolve().parent.parent
+BASE = "http://openapi.eduinfo.go.kr/openApi.do"
+CFG = ROOT / "config" / "edufin.yaml"
+OUT = ROOT / "data" / "measured" / "edufin"
+
+
+class EdufinError(RuntimeError):
+    pass
+
+
+def edufin_key() -> str | None:
+    return (os.environ.get("EDUFIN_KEY") or "").strip() or None
+
+
+def config() -> dict:
+    return yaml.safe_load(CFG.read_text(encoding="utf-8")) if CFG.exists() else {}
+
+
+def _rows(payload) -> list[dict]:
+    """응답 JSON 안에서 가장 긴 '딕셔너리 목록'을 행으로 본다 (서비스마다 감싸는 형식이 달라도 되게)."""
+    best: list[dict] = []
+
+    def walk(x):
+        nonlocal best
+        if isinstance(x, list):
+            if x and all(isinstance(i, dict) for i in x) and len(x) > len(best):
+                best = x
+            for i in x:
+                walk(i)
+        elif isinstance(x, dict):
+            for v in x.values():
+                walk(v)
+    walk(payload)
+    return best
+
+
+def _error(payload) -> str | None:
+    """RESULT/CODE 형식의 오류 응답이면 메시지."""
+    if isinstance(payload, dict):
+        res = payload.get("RESULT") or payload.get("result")
+        if isinstance(res, dict):
+            code = str(res.get("CODE") or res.get("code") or "")
+            if code and not code.endswith("000") and code != "INFO-200":
+                return f"{code}: {res.get('MESSAGE') or res.get('message') or ''}"
+    return None
+
+
+def fetch(service: str, year: int | str, key: str | None = None, page_size: int = 1000, max_pages: int = 50,
+          client: httpx.Client | None = None, **params) -> pd.DataFrame:
+    key = key or edufin_key()
+    if not key:
+        raise EdufinError("EDUFIN_KEY 없음")
+    own = client is None
+    client = client or httpx.Client(timeout=30.0, headers={"User-Agent": "Mozilla/5.0 (research-collector)"})
+    out: list[dict] = []
+    try:
+        for page in range(1, max_pages + 1):
+            q = {"requestType": service, "key": key, "Type": "json", "pIndex": page, "pSize": page_size,
+                 "YMQ": str(year), **params}
+            try:
+                r = client.get(BASE, params=q)
+                r.raise_for_status()
+                payload = r.json()
+            except (httpx.HTTPError, ValueError) as e:  # URL(키 포함)이 메시지에 섞이지 않게
+                raise EdufinError(f"{service} 요청 실패 ({type(e).__name__})") from None
+            err = _error(payload)
+            if err:
+                raise EdufinError(err)
+            rows = _rows(payload)
+            out.extend(rows)
+            if len(rows) < page_size:
+                break
+    finally:
+        if own:
+            client.close()
+    df = pd.DataFrame(out)
+    if not df.empty:
+        df.insert(0, "회계연도", int(str(year)[:4]))
+    return df
+
+
+def keyword_rows(df: pd.DataFrame, keywords) -> pd.DataFrame:
+    """문자열 칸 어디에든 키워드가 들어간 행 (예: 사업명에 '교권', '교육활동보호')."""
+    if df.empty:
+        return df
+    text = df.select_dtypes(exclude="number").astype(str).agg(" ".join, axis=1)
+    mask = text.str.contains("|".join(map(str, keywords)), regex=True)
+    return df[mask]
+
+
+def check(cfg: dict | None = None, client=None) -> dict:
+    cfg = cfg or config()
+    svc = (cfg.get("services") or [{}])[0]
+    if not edufin_key():
+        return {"ok": False, "reason": "EDUFIN_KEY 없음"}
+    try:
+        df = fetch(svc.get("requestType", "opclTotal"), cfg.get("years", [2023])[-1], page_size=20, max_pages=1,
+                   client=client)
+    except EdufinError as e:
+        return {"ok": False, "reason": str(e)}
+    if len(df) <= 5:
+        return {"ok": False, "reason": f"{len(df)}건만 받음 (샘플 키 한도일 수 있음)", "columns": list(df.columns)}
+    return {"ok": True, "reason": "정상", "rows": len(df), "columns": list(df.columns)}
+
+
+def saved(name: str) -> pd.DataFrame:
+    p = OUT / f"{name}.csv"
+    return pd.read_csv(p) if p.exists() else pd.DataFrame()
+
+
+def collect(cfg: dict | None = None, log=print) -> dict[str, pd.DataFrame]:
+    cfg = cfg or config()
+    OUT.mkdir(parents=True, exist_ok=True)
+    got = {}
+    for svc in cfg.get("services") or []:
+        name = svc.get("name") or svc["requestType"]
+        frames = []
+        for y in cfg.get("years") or []:
+            try:
+                frames.append(fetch(svc["requestType"], y, **(svc.get("params") or {})))
+            except EdufinError as e:
+                log(f"[지방교육재정알리미] {name} {y}: {e}")
+        df = pd.concat([f for f in frames if not f.empty], ignore_index=True) if any(not f.empty for f in frames) \
+            else pd.DataFrame()
+        if not df.empty:
+            df.to_csv(OUT / f"{name}.csv", index=False, encoding="utf-8-sig")
+            log(f"[지방교육재정알리미] {name}: {len(df)}행 → {OUT / (name + '.csv')}")
+        got[name] = df
+    return got
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="지방교육재정알리미 Open API 수집")
+    ap.add_argument("--check", action="store_true")
+    a = ap.parse_args(argv)
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(ROOT / ".env")
+    except ImportError:
+        pass
+    st = check()
+    print(f"[지방교육재정알리미] 키 확인: {'정상' if st['ok'] else '실패'} ({st['reason']})")
+    if st.get("columns"):
+        print("응답 칸:", ", ".join(map(str, st["columns"])))
+    if a.check or not st["ok"]:
+        return 0 if st["ok"] else 1
+    collect()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
