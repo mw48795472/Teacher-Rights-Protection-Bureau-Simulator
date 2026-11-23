@@ -114,3 +114,9 @@ def llm_badge():
         st.sidebar.success("Claude 설명: 켜짐")
     else:
         st.sidebar.info("Claude 설명: 꺼짐 (.env에 ANTHROPIC_API_KEY를 넣으면 켜짐)")
+
+
+# 다국어 모드 (한국어/English). GOOGLE_TRANSLATE_API_KEY가 있으면 사이드바에서 English 선택 시 번역.
+import i18n  # noqa: E402
+
+i18n.install()
