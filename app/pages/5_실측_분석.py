@@ -273,9 +273,47 @@ with t7:
                        f"{reg['r2'] * 100:.0f}%를 설명합니다. 이 관계는 {sig}. 한계: n={reg['n']}개 시도·한 시점이라 검정력이 낮고, "
                        "교보위 값은 2024.3.28~6.30 약 3개월 보도 값입니다. 건수끼리 비교하면 학생·교원 수가 많은 시도가 둘 다 커서 "
                        "상관이 부풀려지므로, 인구 대비 비율(1천 명당)끼리 비교한 결과를 우선 보세요. 상관이지 인과가 아닙니다.")
+            st.caption("단순 회귀라 VIF = 1 (다중공선성 없음). 변수를 여러 개 넣은 VIF는 아래 다중 회귀에 있습니다.")
             st.dataframe(rt, hide_index=True, width="stretch")
         else:
             st.dataframe(d, hide_index=True, width="stretch")
+
+        st.markdown("**다중 회귀분석과 VIF (다중공선성)**")
+        st.caption("단순 회귀는 설명 변수가 하나라 VIF가 항상 1입니다. 여러 변수를 함께 넣어 서로의 영향을 통제한 계수와, "
+                   "변수끼리 얼마나 겹치는지(VIF)를 봅니다.")
+        mx = [c for c in ["학폭 심의 / 학생 1천 명", "자체해결 포함 / 학생 1천 명", "피해응답률(%)", "교원 1명당 학생 수"]
+              + [c for c in cvd.columns if c.startswith("재정 / 학생")] + [c for c in cvd.columns if "소년" in c and "1천" in c]
+              if c in cvd and cvd[c].notna().sum() >= 8]
+        default = [c for c in mx if c in ("학폭 심의 / 학생 1천 명", "피해응답률(%)", "교원 1명당 학생 수")
+                   or c.startswith("재정 / 학생")]
+        chosen = st.multiselect("설명 변수 (여러 개)", mx, default=default, key="dq_multi")
+        my = tr.COMMITTEE_RATE if tr.COMMITTEE_RATE in cvd else ys[0]
+        mreg, mtab = tr.multiple_regression(cvd, chosen, my)
+        if mreg.get("singular"):
+            st.warning("고른 변수끼리 완전히 겹쳐(한 변수가 다른 변수들의 합 등) 계수를 구할 수 없습니다. 변수를 줄여 주세요.")
+        elif not mreg:
+            st.info("변수를 하나 이상 고르고, 관측치(시도 수)가 변수 수 + 2 이상이어야 합니다.")
+        else:
+            st.markdown(f"**{my} = a + " + " + ".join(f"b{i + 1}·{c}" for i, c in enumerate(chosen)) + "**")
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("관측치 n", f"{mreg['n']}", help="결측이 있는 시도는 빠집니다")
+            m2.metric("R²", f"{mreg['r2']:.2f}")
+            m3.metric("수정 R²", f"{mreg['adj_r2']:.2f}", help="변수 수를 감안한 R²")
+            m4.metric("모형 F검정 p값", f"{mreg['f_p']:.3f}")
+            st.dataframe(mtab, hide_index=True, width="stretch")
+            mv = mreg["max_vif"]
+            if mv > 10:
+                st.warning(f"최대 VIF {mv:.1f}: 10을 넘어 다중공선성이 심합니다. VIF가 큰 변수 중 하나를 빼고 다시 보세요.")
+            elif mv > 5:
+                st.info(f"최대 VIF {mv:.1f}: 5~10이라 다중공선성을 주의해서 해석하세요.")
+            else:
+                st.success(f"최대 VIF {mv:.1f}: 5 미만이라 변수끼리 겹침은 크지 않습니다.")
+            st.caption(f"VIF = 1 / (1 − R²ⱼ), R²ⱼ는 그 변수를 나머지 설명 변수로 회귀한 결정계수입니다. 보통 10을 넘으면 심각, "
+                       f"5를 넘으면 주의로 봅니다. 표준화 계수는 변수 단위를 맞춰 상대적 크기를 비교한 값입니다. "
+                       f"한계: n={mreg['n']}개 시도에 변수 {mreg['k']}개라 자유도가 {mreg['n'] - mreg['k'] - 1}뿐이어서 계수가 불안정하고, "
+                       "변수를 하나 넣고 뺄 때마다 결과가 크게 바뀔 수 있습니다. 탐색용으로만 보세요.")
+            if not any(c.startswith("재정 / 학생") for c in mx):
+                st.caption("재정 규모 변수는 ⑤ 시도교육청 재정 탭이 지방교육재정알리미 자료를 받아 둔 경우에만 나타납니다.")
         st.info("시도별 교보위 심의 건수가 연도별로 들어오면(정보공개청구 또는 교육부 발표) 같은 패널에서 시도 고정효과 회귀로 "
                 "'같은 시도 안에서 학폭이 늘어난 해에 교권 침해도 늘었는가'를 볼 수 있습니다. 지금은 2024 한 시점만 있습니다.")
     pn = tr.delinquency_panel()
