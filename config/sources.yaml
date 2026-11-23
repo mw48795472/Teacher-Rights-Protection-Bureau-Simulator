@@ -1,23 +1,106 @@
 # 실제 수집 대상. 팀원이 링크를 추가하면 다음 수집에 반영됩니다.
-# 법령·조례는 국가법령정보센터 Open API(LAW_OC 필요)로, 나머지는 HTML 파싱으로 수집합니다.
-laws:            # target=law (법률)
+#   python -m collector.pipeline --list   # 수집기 목록과 필요한 키
+# 법령·조례·행정규칙·판례는 국가법령정보센터 Open API(LAW_OC 필요)로, 나머지는 키 없이 수집합니다.
+#
+# 공통 옵션
+#   replaces: [시드 id]   이 원문이 들어오면 config/seed_corpus.yaml 의 해당 팀 요약을 뺍니다.
+#                         (시드와 URL이 같으면 적지 않아도 자동으로 대체)
+
+laws:            # target=law (법률·대통령령). 이름이 정확해야 합니다.
   - 교원의 지위 향상 및 교육활동 보호를 위한 특별법
+  - 교원의 지위 향상 및 교육활동 보호를 위한 특별법 시행령
   - 초·중등교육법
+  - 초·중등교육법 시행령
   - 유아교육법
   - 교육기본법
+  - 교육공무원법
   - 아동학대범죄의 처벌 등에 관한 특례법
-ordinances:      # target=ordin (자치법규)
+  - 아동복지법
+
+ordinances:      # target=ordin (자치법규). 이 목록의 조례 조문은 같은 조문번호의 시드 요약을 대체합니다.
   - name: 경기도교육청 교권보호전담관 운영 조례
     mst: "2176205"   # ordinSeq. 검색으로 찾지 못할 때 사용
-pages:           # HTML 수집 (본문은 분석용 로컬 캐시에만 저장)
-  - url: https://more.goe.go.kr/eapc/subList/20000000413
+
+ordinance_search:  # 이름을 정확히 몰라도 검색어로 관련 자치법규를 모두 받습니다(시드 대체는 안 함).
+  - query: 교육활동 보호
+    must_contain: [경기도]
+    max: 10
+  - query: 교권
+    must_contain: [경기도]
+    max: 10
+  - query: 교육활동 보호
+    must_contain: [인천광역시]   # 비교 사례(인천 교육활동보호담당관)
+    max: 5
+
+admin_rules:     # target=admrul (행정규칙: 고시·훈령·예규). 이름이 정확해야 합니다.
+  - 교육활동 침해 행위 및 조치 기준에 관한 고시
+  - 교원의 학생생활지도에 관한 고시
+
+precedents:      # target=prec. 본문 검색어별로 최신 판례를 받습니다(판시사항·판결요지·전문 앞부분).
+  max_per_query: 5
+  queries:
+    - 교육활동 침해
+    - 교권보호위원회
+    - 교사 정서적 아동학대 생활지도
+    - 학부모 악성 민원 교사
+
+pages:           # HTML 수집. selector 로 본문 영역을 지정할 수 있습니다.
+  # 경기교권보호지원센터: 메뉴가 본문에 섞여 #cntntsCn 만 읽습니다.
+  - url: https://more.goe.go.kr/eapc/subList/20000000413   # 지역교권보호위원회
     reliability: A
+    source_type: policy
+    selector: "#cntntsCn"
+    title: 경기교권보호지원센터 「지역교권보호위원회」 안내
+  - url: https://more.goe.go.kr/eapc/subList/20000000414
+    reliability: A
+    source_type: policy
+    selector: "#cntntsCn"
+    title: 경기교권보호지원센터 「경기도교육청교권보호위원회」 안내
+  - url: https://more.goe.go.kr/eapc/subList/30300001566
+    reliability: A
+    source_type: policy
+    selector: "#cntntsCn"
+    title: 경기교권보호지원센터 「교육활동 침해행위의 이해」
+  - url: https://more.goe.go.kr/eapc/subList/20000000410
+    reliability: A
+    source_type: policy
+    selector: "#cntntsCn"
+    title: 경기교권보호지원센터 「교육활동 침해 피해교원 보호조치」
+  - url: https://more.goe.go.kr/eapc/subList/30300002116
+    reliability: A
+    source_type: policy
+    selector: "#cntntsCn"
+    title: 경기교권보호지원센터 「교육활동 침해 가해자 분리조치」
+  - url: https://more.goe.go.kr/eapc/subList/30300002117
+    reliability: A
+    source_type: policy
+    selector: "#cntntsCn"
+    title: 경기교권보호지원센터 「교원에 대한 지원 제도」
+  - url: https://more.goe.go.kr/eapc/subList/30300001942
+    reliability: A
+    source_type: policy
+    selector: "#cntntsCn"
+    title: 경기교권보호지원센터 「교권보호119콜센터」
+  - url: https://more.goe.go.kr/eapc/subList/30300002114
+    reliability: A
+    source_type: policy
+    selector: "#cntntsCn"
+    title: 경기교권보호지원센터 「운영 내용」
+  # 교육부 게시글은 첨부 보도자료(.hwpx)와 [별첨] PDF까지 읽습니다.
   - url: https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=105198&lev=0&m=020402
     reliability: A
   - url: https://www.ggc.go.kr/site/main/xb/lwmkr/lawmakerpressrelease/297803
     reliability: A
   - url: https://www.education.gouv.fr/bo/2024/Hebdo14/MENE2409242C
     reliability: A
+    source_type: foreign_policy
+  # 언론 기사 (본문은 분석용 로컬 캐시에만 저장, 스냅샷에는 넣지 않음)
+  - url: https://view.asiae.co.kr/article/2026071317583974597
+    reliability: C
+  - url: https://hangyo.com/mobile/article.html?no=96268
+    reliability: C
+  - url: https://www.kyeongin.com/article/1708034
+    reliability: C
   - url: https://www.ajunews.com/view/20260721172724067
     reliability: C
   - url: https://m.go.seoul.co.kr/news/2026/07/22/20260722500310
@@ -28,3 +111,24 @@ pages:           # HTML 수집 (본문은 분석용 로컬 캐시에만 저장)
     reliability: C
   - url: https://www.pressian.com/pages/articles/2026091817035275725
     reliability: C
+
+boards:          # 기관 보도자료 게시판을 제목 키워드로 검색해 게시글을 수집합니다.
+  - site: moe_press          # 교육부 보도자료 (첨부 HWPX·PDF 포함)
+    keywords: [교권, 교육활동 보호, 교육활동 침해, 학교민원, 교원 보호]
+    since: "2023-07-01"
+    max_posts: 25
+  - site: goe_press          # 경기도교육청 보도자료
+    keywords: [교권, 교육활동 보호, 교권보호단, 교권보호전담관, 교육활동 침해]
+    since: "2025-01-01"
+    max_posts: 40
+
+files:           # 웹페이지가 아닌 파일 (HWPX·PDF·DOCX). url 또는 path(저장소 기준 상대경로)
+  # - url: https://example.go.kr/download/manual.pdf
+  #   title: 교육활동 보호 매뉴얼
+  #   reliability: A
+  #   source_type: policy
+  #   source_url: https://example.go.kr/board/view/123   # 사람이 열어 볼 페이지
+  # - path: data/raw/2026_교권보호단_업무매뉴얼.hwpx
+  #   title: 경기도교육청 교권보호단 업무매뉴얼
+  #   reliability: A
+  # data/raw/inbox/ 에 파일을 넣기만 해도 신뢰도 D(참고)로 들어갑니다.
