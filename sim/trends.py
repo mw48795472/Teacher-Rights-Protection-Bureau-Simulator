@@ -25,13 +25,13 @@ SIDO_SHORT = {"서울": "서울", "부산": "부산", "대구": "대구", "인�
 
 # ── 1. 추세 ──
 def committee_totals() -> pd.DataFrame:
-    """연도별 교보위 심의 건수. 2019~2023 교육부 원자료(A), 2024는 의원실 발표 보도(C)."""
+    """연도별 교보위 심의 건수. 2019~2023 교육부 원자료(A), 2024~2025는 KEDI 교육정책포럼 수치 보도."""
     m = cal.load()
     rows = [{"학년도": int(y), "건수": int(v), "출처": "교육부 원자료"}
             for y, v in m["committee_cases"]["by_year"].items()]
-    y24 = ((m.get("committee_by_sido") or {}).get("y2024") or {}).get("total")
-    if y24:
-        rows.append({"학년도": 2024, "건수": int(y24), "출처": "의원실 발표 보도"})
+    recent = (m.get("committee_cases_recent") or {}).get("by_year") or {}
+    for y, v in recent.items():
+        rows.append({"학년도": int(y), "건수": int(v), "출처": "KEDI 교육정책포럼 (보도)"})
     return pd.DataFrame(rows).sort_values("학년도", ignore_index=True)
 
 
@@ -63,9 +63,18 @@ def law5_compare() -> pd.DataFrame:
 
 # ── 2·3. 시도 비교와 교원 1천 명당 ──
 def sido_teachers() -> pd.DataFrame:
-    """KESS 시도별 교원 수 (data/measured/sido_teachers.csv: 시도, 연도, 교원수). 없으면 빈 표."""
+    """KESS 시도별 교원 수 (data/measured/sido_teachers.csv: 시도, 연도, 교원수).
+    파일이 없고 KOSIS_KEY·config/kosis.yaml 통계표 ID가 있으면 KOSIS에서 받아 저장한다. 둘 다 없으면 빈 표."""
     if not SIDO_TEACHERS.exists():
-        return pd.DataFrame(columns=["시도", "연도", "교원수"])
+        from collector import kosis
+        try:
+            df = kosis.fetch_teachers() if kosis.kosis_key() else None
+        except Exception:  # 화면을 막지 않는다
+            df = None
+        if df is None or df.empty:
+            return pd.DataFrame(columns=["시도", "연도", "교원수"])
+        SIDO_TEACHERS.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(SIDO_TEACHERS, index=False, encoding="utf-8-sig")
     from collector.measured import read_kr_csv
     df = read_kr_csv(SIDO_TEACHERS)
     df["시도"] = df["시도"].astype(str).str[:2].map(SIDO_SHORT)

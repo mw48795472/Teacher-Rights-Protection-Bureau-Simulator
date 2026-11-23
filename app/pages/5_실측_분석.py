@@ -21,8 +21,8 @@ with t1:
     tot = tr.committee_totals()
     st.plotly_chart(px.bar(tot, x="학년도", y="건수", color="출처", text="건수",
                            title="교권보호위원회 심의 건수"), use_container_width=True)
-    st.caption("2019~2023: 교육부 「교권보호위원회 개최 현황」·「교육활동 침해 현황」. 2024: 의원실 발표 보도(전국 4,199건, "
-               "2024.3.28.부터 지역교권보호위원회로 이관). 2020년 급감은 원격수업 영향으로 해석됩니다.")
+    st.caption("2019~2023: 교육부 「교권보호위원회 개최 현황」·「교육활동 침해 현황」. 2024~2025: 한국교육개발원 교육정책포럼 수치(연합뉴스 2026.9.4. 보도). "
+               "2024.3.부터 교육지원청 지역교권보호위원회로 이관되어 2023 이전과 바로 비교하기 어렵습니다. 2020년 급감은 원격수업 영향으로 해석됩니다.")
     ty = tr.types_by_year()
     st.plotly_chart(px.bar(ty, x="학년도", y="비율(%)", color="유형", title="침해 유형 구성 (2020~2023)",
                            hover_data=["건수"]), use_container_width=True)
@@ -36,7 +36,8 @@ with t2:
     tc = tr.sido_teachers()
     if tc.empty:
         st.warning("시도별 교원 수 자료가 아직 없습니다. KESS(kess.kedi.re.kr)에서 시도별 교원 수를 받아 "
-                   "`data/measured/sido_teachers.csv`(열: 시도, 연도, 교원수)로 넣으면 이 칸이 채워집니다.")
+                   "`data/measured/sido_teachers.csv`(열: 시도, 연도, 교원수)로 넣거나, "
+                   "Streamlit Secrets에 `KOSIS_KEY`를 넣고 `config/kosis.yaml`에 통계표 ID를 적으면 앱이 직접 받아 채웁니다.")
     else:
         s = tr.sido_2024()
         col = "1천 명당 (3개월)"

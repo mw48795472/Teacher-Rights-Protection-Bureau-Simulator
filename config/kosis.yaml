@@ -1,0 +1,7 @@
+# KOSIS 통계표 설정. 키(KOSIS_KEY)가 생기면 `python -m collector.kosis --search 시도별 교원` 으로 확인해 tblId를 채운다.
+teachers:
+  orgId: "334"        # 한국교육개발원 (교육통계)
+  tblId: ""           # 확인 후 기입
+  item: 교원           # 항목 이름 필터 (여러 항목이 올 때)
+  start: 2019
+  end: 2025

@@ -71,6 +71,23 @@ sources:
     key: "-"
     used_in: 경기 연간 심의 건수(하루 약 2.9건)와 시뮬레이터 유입량 비교, 인천 학생·보호자 비율
 
+  - group: 실측 통계
+    provider: 한국교육개발원 (KOSIS 공유서비스)
+    name: 시도별 교원 수 (교육통계)
+    url: https://kosis.kr/openapi/
+    date: 수시
+    format: Open API (statisticsData) → data/measured/sido_teachers.csv
+    key: KOSIS_KEY
+    used_in: 실측 분석 교원 1천 명당 심의 건수 (통계표 ID는 config/kosis.yaml)
+  - group: 실측 통계
+    provider: 한국교육개발원 교육정책포럼 (연합뉴스 보도)
+    name: 2024~2025 전국 교권보호위원회 심의 건수
+    url: https://supple.kr/news/cmtm1xv4h001j11irh1ol53yi
+    date: "2026-09-04 보도"
+    format: 기사 본문 → config/measured.yaml committee_cases_recent
+    key: "-"
+    used_in: 실측 분석 심의 건수 추세
+
   # ── 위치·기관 ──
   - group: 위치·기관
     provider: 한국교육시설안전원
