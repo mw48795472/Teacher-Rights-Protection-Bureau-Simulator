@@ -193,3 +193,55 @@ def edufin_budget(fetch: bool = True) -> tuple[pd.DataFrame, str]:
     allrows = pd.concat([f for f in frames.values() if not f.empty], ignore_index=True)
     hit = edufin.keyword_rows(allrows, cfg.get("keywords") or ["교권"])
     return (hit, "ok") if not hit.empty else (allrows, "no_keyword")
+
+
+# ── 6. 시도교육청 재정 (지방교육재정알리미 공시) ──
+def edufin_frame(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """받은 공시 표에서 시도·연도·숫자 칸을 찾아 정리한다. 칸 이름이 공개되지 않아 값으로 알아본다.
+    반환: (정리된 표: 시도, 연도, 구분 칸들, 숫자 칸들), {"sido": 원래 칸, "year": 칸, "nums": [...], "cats": [...]}"""
+    from collector.kosis import sido_short
+    if df is None or df.empty:
+        return pd.DataFrame(), {}
+    d = df.copy()
+    texts = [c for c in d.columns if d[c].dtype == object or str(d[c].dtype).startswith("str")]
+    sido_col = max(texts, key=lambda c: d[c].astype(str).map(sido_short).notna().mean(), default=None)
+    if sido_col is None or d[sido_col].astype(str).map(sido_short).notna().mean() < 0.5:
+        return pd.DataFrame(), {}
+    d["시도"] = d[sido_col].astype(str).map(sido_short)
+    year_col = next((c for c in d.columns if str(c) in ("회계연도", "연도", "YMQ", "ymq", "YEAR", "year")), None)
+    if year_col is None:
+        year_col = next((c for c in d.columns if any(k in str(c).upper() for k in ("YEAR", "YMQ", "YR", "연도"))), None)
+    d["연도"] = pd.to_numeric(d[year_col].astype(str).str[:4], errors="coerce") if year_col is not None else pd.NA
+    nums = []
+    for c in d.columns:
+        if c in ("시도", "연도", year_col):
+            continue
+        v = pd.to_numeric(d[c].astype(str).str.replace(",", "").str.strip(), errors="coerce")
+        if v.notna().mean() >= 0.8 and v.nunique() > 5:
+            d[c] = v
+            nums.append(c)
+    cats = [c for c in texts if c != sido_col and c not in nums and 1 < d[c].nunique() <= 300]
+    d = d.dropna(subset=["시도"])
+    return d, {"sido": sido_col, "year": year_col, "nums": nums, "cats": cats}
+
+
+def edufin_by_sido(d: pd.DataFrame, value: str, filters: dict | None = None) -> pd.DataFrame:
+    """시도×연도 합계 (filters: {구분 칸: 값})."""
+    x = d
+    for c, v in (filters or {}).items():
+        x = x[x[c].astype(str) == str(v)]
+    return x.groupby(["시도", "연도"], dropna=False, as_index=False)[value].sum()
+
+
+def committee_vs_fiscal(fiscal: pd.DataFrame, value: str) -> pd.DataFrame:
+    """2024 시도별 위원회 심의 건수(2024.3.28~6.30, 17개 시도)와 가장 최근 연도 재정 값을 잇는다."""
+    s = sido_2024()[["시도", "2024.3.28~6.30"]].rename(columns={"2024.3.28~6.30": "심의 건수 (2024.3.28~6.30)"})
+    f = fiscal.dropna(subset=["연도"]) if "연도" in fiscal else fiscal
+    if f.empty:
+        return pd.DataFrame()
+    y = 2024 if (f["연도"] == 2024).any() else f["연도"].max()
+    f = f[f["연도"] == y][["시도", value]]
+    out = s.merge(f, on="시도", how="inner")
+    out["재정 기준 연도"] = y
+    out["심의 건수 / 재정 1조"] = out["심의 건수 (2024.3.28~6.30)"] / (out[value] / 1e12)
+    return out
