@@ -83,6 +83,12 @@ def fetch_schools(key: str, atpt: str = GYEONGGI, client: httpx.Client | None = 
 def reconcile(schools: pd.DataFrame, neis: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """위치 표준데이터에 NEIS 정보(학교코드·전화·홈페이지 등)를 붙이고 양쪽 차이를 센다."""
     keys = ["name", "office"]
+    # 고등학교는 NEIS에서 관할조직이 '경기도교육청'(도 직속)이라 교육지원청이 비어 있다.
+    # 이름이 위치 데이터에서 하나뿐이면 그 학교의 교육지원청을 쓴다.
+    neis = neis.copy()
+    uniq = schools.drop_duplicates("name", keep=False).set_index("name")["office"]
+    miss = neis["office"].isna()
+    neis.loc[miss, "office"] = neis.loc[miss, "name"].map(uniq)
     extra = neis.drop(columns=["level", "addr"]).drop_duplicates(keys)
     merged = schools.merge(extra, on=keys, how="left")
     s_keys = set(map(tuple, schools[keys].values))
