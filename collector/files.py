@@ -64,3 +64,24 @@ def collect_inbox(folder: Path, log=print) -> list[Document]:
                          reliability="D", meta={"file": p.name, "inbox": True}))
         log(f"[파일] {p.name} ({len(text)}자, 신뢰도 D: sources.yaml 에 등록하면 출처·신뢰도를 줄 수 있음)")
     return docs
+
+
+def chunk(doc: Document, size: int = 1500) -> list[Document]:
+    """긴 문서를 문단 경계에서 size 자 안팎으로 나눈다(검색이 한 부분을 집어낼 수 있게)."""
+    if len(doc.text) <= size * 1.3:
+        return [doc]
+    parts, buf = [], ""
+    for line in doc.text.splitlines():
+        if buf and len(buf) + len(line) > size:
+            parts.append(buf)
+            buf = ""
+        buf += ("\n" if buf else "") + line
+    if buf:
+        parts.append(buf)
+    out = []
+    for i, text in enumerate(parts, 1):
+        d = Document(**{**doc.to_dict(), "id": f"{doc.id}-{i}", "text": text,
+                        "title": f"{doc.title} ({i}/{len(parts)})",
+                        "meta": {**doc.meta, "part": i, "parts": len(parts)}})
+        out.append(d)
+    return out

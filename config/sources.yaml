@@ -123,6 +123,21 @@ boards:          # 기관 보도자료 게시판을 제목 키워드로 검색�
     max_posts: 40
 
 files:           # 웹페이지가 아닌 파일 (HWPX·PDF·DOCX). url 또는 path(저장소 기준 상대경로)
+  - path: data/measured/raw/교육부_교권보호위원회_개최_현황_20240229.hwpx
+    title: 교육부 「교권보호위원회 개최 현황」(학교급별·유형별, 2020~2023학년도)
+    reliability: A
+    source_type: policy
+    source_url: https://www.data.go.kr/data/15137983/fileData.do
+  - path: data/measured/raw/교육부_교육활동_침해_및_교원치유지원센터_지원_현황_20240229.hwpx
+    title: 교육부 「교육활동 침해 및 교원치유지원센터 지원 현황」(2019~2023)
+    reliability: A
+    source_type: policy
+    source_url: https://www.data.go.kr/data/15112904/fileData.do
+  - path: data/measured/raw/교육활동_보호_후속_조치_추진현황_2024-05.pdf
+    title: 교육부 「교육활동 보호 후속 조치 추진현황」(2024.5.)
+    reliability: A
+    source_type: policy
+    source_url: https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=98939&lev=0&m=020402
   # - url: https://example.go.kr/download/manual.pdf
   #   title: 교육활동 보호 매뉴얼
   #   reliability: A
