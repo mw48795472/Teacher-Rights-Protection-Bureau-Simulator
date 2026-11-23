@@ -14,7 +14,7 @@ def test_every_page_marks_data_kind():
     import glob
     pages = {p: open(p, encoding="utf-8").read() for p in glob.glob("app/pages/*.py")}
     for p, src in pages.items():
-        if "근거_자료" in p:
+        if "근거_자료" in p or "실측_분석" in p:
             assert 'data_label("real"' in src
         else:
             assert "data_label(" in src, p
