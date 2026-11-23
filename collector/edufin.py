@@ -67,6 +67,45 @@ def _error(payload) -> str | None:
     return None
 
 
+def _xml_rows(root) -> list[dict]:
+    """XML에서 자식 칸을 가진 같은 이름 원소가 여럿이면 그것을 행으로 본다."""
+    best: list[dict] = []
+    for parent in root.iter():
+        groups: dict[str, list] = {}
+        for k in parent:
+            if len(k) and k.tag not in ("head", "RESULT", "result"):
+                groups.setdefault(k.tag, []).append(k)
+        for kids in groups.values():
+            if len(kids) > len(best):
+                best = [{c.tag: (c.text or "").strip() for c in k} for k in kids]
+    return best
+
+
+def parse_body(text: str, key: str = "") -> dict | list:
+    """JSON 이면 그대로, XML 이면 {RESULT, rows} 로. 둘 다 아니면 응답 앞부분(키는 가림)을 담아 오류."""
+    t = (text or "").strip().lstrip("\ufeff")
+    try:
+        import json
+        return json.loads(t)
+    except ValueError:
+        pass
+    if t.startswith("<"):
+        import xml.etree.ElementTree as ET
+        try:
+            root = ET.fromstring(t)
+        except ET.ParseError:
+            root = None
+        if root is not None:
+            code = root.findtext(".//CODE") or root.findtext(".//code")
+            msg = root.findtext(".//MESSAGE") or root.findtext(".//message") or ""
+            out: dict = {"rows": _xml_rows(root)}
+            if code:
+                out["RESULT"] = {"CODE": code, "MESSAGE": msg}
+            return out
+    head = " ".join(t.replace(key, "***").split())[:160] if key else " ".join(t.split())[:160]
+    raise EdufinError(f"JSON·XML이 아닌 응답: {head or '(빈 응답)'}")
+
+
 def fetch(service: str, year: int | str, key: str | None = None, page_size: int = 1000, max_pages: int = 50,
           client: httpx.Client | None = None, **params) -> pd.DataFrame:
     key = key or edufin_key()
@@ -77,14 +116,15 @@ def fetch(service: str, year: int | str, key: str | None = None, page_size: int 
     out: list[dict] = []
     try:
         for page in range(1, max_pages + 1):
-            q = {"requestType": service, "key": key, "Type": "json", "pIndex": page, "pSize": page_size,
-                 "YMQ": str(year), **params}
+            q = {"requestType": service, "key": key, "Type": "json", "type": "json", "pIndex": page,
+                 "pSize": page_size, "YMQ": str(year), **params}
             try:
                 r = client.get(BASE, params=q)
                 r.raise_for_status()
-                payload = r.json()
-            except (httpx.HTTPError, ValueError) as e:  # URL(키 포함)이 메시지에 섞이지 않게
-                raise EdufinError(f"{service} 요청 실패 ({type(e).__name__})") from None
+            except httpx.HTTPError as e:  # URL(키 포함)이 메시지에 섞이지 않게
+                code = f" HTTP {e.response.status_code}" if isinstance(e, httpx.HTTPStatusError) else ""
+                raise EdufinError(f"{service} 요청 실패 ({type(e).__name__}{code})") from None
+            payload = parse_body(r.text, key)
             err = _error(payload)
             if err:
                 raise EdufinError(err)

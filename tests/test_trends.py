@@ -104,3 +104,16 @@ def test_kosis_finds_table_by_search(monkeypatch):
     monkeypatch.setattr(kosis, "_get", fake)
     df = kosis.fetch_teachers({"teachers": {"orgId": "334", "item": "교원"}})
     assert df["시도"].nunique() == 17 and "DT_A" in df.attrs["table"]
+
+
+def test_edufin_parse_body_xml_and_html():
+    import pytest
+    from collector import edufin
+    xml = ("<opclTotal><head><RESULT><CODE>INFO-000</CODE><MESSAGE>정상</MESSAGE></RESULT></head>"
+           "<row><EDU_NM>경기도교육청</EDU_NM><AMT>1</AMT></row><row><EDU_NM>인천</EDU_NM><AMT>2</AMT></row></opclTotal>")
+    p = edufin.parse_body(xml)
+    assert len(p["rows"]) == 2 and edufin._error(p) is None and len(edufin._rows(p)) == 2
+    err = edufin.parse_body("<RESULT><CODE>ERROR-290</CODE><MESSAGE>인증키 오류</MESSAGE></RESULT>")
+    assert "ERROR-290" in edufin._error(err)
+    with pytest.raises(edufin.EdufinError, match="\\*\\*\\*"):
+        edufin.parse_body("<html>잘못된 키 SECRETKEY 입니다", key="SECRETKEY")
