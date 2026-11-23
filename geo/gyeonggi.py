@@ -56,6 +56,8 @@ COLS = {
     "lon": ("경도",),
     "status": ("운영상태",),
     "addr": ("소재지도로명주소", "소재지지번주소"),
+    "date": ("데이터기준일자",),
+    "provider": ("제공기관명",),
 }
 
 
@@ -91,7 +93,7 @@ def load_schools(src=None) -> pd.DataFrame:
     src는 파일 경로나 업로드된 파일 객체. None이면 data/schools/gyeonggi_schools.csv를 찾고,
     없으면 빈 표를 돌려준다.
     """
-    empty = pd.DataFrame(columns=["name", "level", "office", "lat", "lon", "addr"])
+    empty = pd.DataFrame(columns=["name", "level", "office", "lat", "lon", "addr", "date", "provider"])
     if src is None:
         if not DEFAULT_CSV.exists():
             return empty
@@ -112,6 +114,8 @@ def load_schools(src=None) -> pd.DataFrame:
         "lat": pd.to_numeric(df[need["lat"]], errors="coerce"),
         "lon": pd.to_numeric(df[need["lon"]], errors="coerce"),
         "addr": df[need["addr"]] if need["addr"] else "",
+        "date": df[need["date"]] if need["date"] else "",
+        "provider": df[need["provider"]] if need["provider"] else "",
     })
     out = out[out["level"].isin(LEVELS) & out["office"].notna()].dropna(subset=["lat", "lon"])
     return out.reset_index(drop=True)
