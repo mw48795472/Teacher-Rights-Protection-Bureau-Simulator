@@ -191,7 +191,7 @@ with t7:
         st.info("학교폭력 공시 파일(data/measured/school_violence_sido.csv)이 아직 없습니다.")
     else:
         st.plotly_chart(px.line(sv, x="학년도", y="학폭 심의 / 학생 1천 명", color="시도", markers=True,
-                                title="시도별 학교폭력 심의 건수 (학생 1천 명당)".update_xaxes(dtick=1)), width="stretch")
+                                title="시도별 학교폭력 심의 건수 (학생 1천 명당)").update_xaxes(dtick=1), width="stretch")
         st.caption("학교알리미 '학교폭력 심의 결과' 공시(전국 초·중·고 약 1만 2천 곳)를 시도별로 더했습니다. 4월 공시는 전 학년도 실적이라 "
                    "공시연도에서 1을 뺀 학년도로 표시합니다. 공시 원자료는 학교알리미 화면에만 있어 공개 집계(school-violence-map)에서 받았습니다.")
         if (sv["학생수 기준"] == "2026 공시").any():
@@ -207,7 +207,7 @@ with t7:
     vr = tr.victim_rate()
     if not vr.empty:
         st.plotly_chart(px.line(vr.sort_values("연도"), x="연도", y="피해응답률", color="시도", markers=True,
-                                title="학교폭력 실태조사 피해응답률 (1차 전수조사, %)".update_xaxes(dtick=1)), width="stretch")
+                                title="학교폭력 실태조사 피해응답률 (1차 전수조사, %)").update_xaxes(dtick=1), width="stretch")
         st.caption("시도교육청 보도자료와 지역 언론 보도에서 옮긴 시도별 값입니다(교육부 발표에는 전국값만 있음). 빈 칸은 해당 연도 "
                    "보도에서 값을 찾지 못한 경우이고, 전년 대비 증감만 보도된 값은 계산값입니다(출처 표의 비고). 2차 표본조사 값은 섞지 않았습니다. "
                    "전북 2023은 전국 1차에 불참하고 자체 조사한 값이라 비교에 주의하세요.")
@@ -216,7 +216,7 @@ with t7:
     jc = tr.juvenile_crime()
     if not jc.empty:
         st.plotly_chart(px.line(jc.sort_values("연도"), x="연도", y="값", color="시도", line_dash="지표", markers=True,
-                                title="시도별 촉법소년 (보도 값)".update_xaxes(dtick=1)), width="stretch")
+                                title="시도별 촉법소년 (보도 값)").update_xaxes(dtick=1), width="stretch")
         st.caption(f"경찰청 자료를 인용한 보도(의원실 국감 자료·정보공개)에서 옮긴 값이라 {jc['시도'].nunique()}개 시도만 있습니다(신뢰도 C). "
                    "17개 시도가 다 모이지 않아 회귀분석에는 아직 쓰지 않습니다. 경찰청 시도별 소년범 검거 표는 정보공개청구로 받을 수 있습니다.")
 
