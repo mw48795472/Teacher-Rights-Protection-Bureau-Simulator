@@ -96,10 +96,7 @@ def section(n: str, title: str, sub: str = "") -> str:
 # ── 연구 질문과 답 ──
 html('<div class="h-hero"><div class="tag">조직이론 팀 프로젝트 · 경기도교육청 교권보호단 사례</div>'
      "<h1>교권보호국 시뮬레이터</h1>"
-     f'<p class="h-q">{T["question"]}</p>'
-     '<div class="h-flow"><span>질문</span><i>→</i><span>이론</span><i>→</i><span>가설</span><i>→</i>'
-     "<span>시뮬레이션 검증</span><i>→</i><span>결론</span></div>"
-     f'<div class="ans"><b>결론 한 줄</b><br>{T["answer"]}</div></div>')
+     f'<p class="h-q">{T["question"]}</p></div>')
 
 # ── 01 이론 틀 ──
 panels = []
