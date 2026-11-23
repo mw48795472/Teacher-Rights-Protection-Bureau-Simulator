@@ -5,6 +5,7 @@ import streamlit as st
 
 from common import llm_badge, retriever, scenarios, structures
 from geo.gyeonggi import DEFAULT_CSV, OFFICE_BY_KEY, OFFICES, hierarchy, load_schools, office_weights
+from geo.neis import NeisError, fetch_schools, neis_key, reconcile
 from sim.engine import SimConfig, run
 from sim.metrics import to_frame
 
@@ -38,6 +39,26 @@ else:
     st.success(f"{src}에서 경기도 학교 {len(schools):,}곳을 읽었습니다 "
                f"(초 {lv.get('초등학교', 0):,} · 중 {lv.get('중학교', 0):,} · 고 {lv.get('고등학교', 0):,}).")
 
+
+
+@st.cache_data(ttl=86400, show_spinner="NEIS에서 최신 학교 정보를 받는 중...")
+def neis_schools(key: str) -> pd.DataFrame:
+    return fetch_schools(key)
+
+
+if neis_key() and not schools.empty:
+    try:
+        schools, rec = reconcile(schools, neis_schools(neis_key()))
+        with st.expander(f"NEIS 대조: 일치 {rec['일치']:,}곳 · NEIS에만 {rec['NEIS에만']} · 위치데이터에만 {rec['위치데이터에만']}"):
+            st.caption("NEIS 학교기본정보(하루 1회 갱신)와 학교명·관할로 맞춰 학교코드, 전화, 홈페이지를 붙였습니다. "
+                       "'NEIS에만'은 위치 데이터 기준일 뒤 신설·개명된 학교일 수 있어 지도에는 없습니다.")
+            if not rec["only_neis"].empty:
+                st.dataframe(rec["only_neis"][["name", "level", "office", "addr"]], hide_index=True, width="stretch")
+    except NeisError as e:
+        st.warning(f"NEIS 연결에 실패해 위치 데이터만 씁니다. {e}")
+elif not neis_key():
+    st.caption("NEIS_KEY가 없어 학교코드·전화·홈페이지 정보는 붙이지 않았습니다.")
+
 offices_df = pd.DataFrame([{"office": o.key, "name": o.name, "lat": o.lat, "lon": o.lon} for o in OFFICES])
 n_by_office = schools["office"].value_counts() if not schools.empty else pd.Series(dtype=int)
 offices_df["학교 수"] = offices_df["office"].map(n_by_office).fillna(0).astype(int)
@@ -61,8 +82,8 @@ with tab_map:
     if not schools.empty:
         pts = schools[schools["level"].isin(levels)]
         fig = px.scatter_map(pts, lat="lat", lon="lon", color="level", color_discrete_map=LEVEL_COLOR,
-                             hover_name="name", hover_data={"office": True, "addr": True, "lat": False, "lon": False,
-                                                            "level": False},
+                             hover_name="name", hover_data={"office": True, "addr": True, "lat": False, "lon": False, "level": False,
+                                         **{c: True for c in ("phone", "homepage") if c in pts}},
                              height=620, **MAP)
         fig.update_traces(marker=dict(size=5, opacity=0.6))
     else:
