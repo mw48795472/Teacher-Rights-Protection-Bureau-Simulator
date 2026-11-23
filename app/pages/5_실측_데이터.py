@@ -60,3 +60,40 @@ with c4:
         st.plotly_chart(px.line(po.melt(id_vars="연도", var_name="구분", value_name="건·명"),
                                 x="연도", y="건·명", color="구분", markers=True), use_container_width=True)
     st.caption(f"출처: {cal.source('police').get('title')}")
+
+st.subheader("경기데이터드림 연결 (GG_DATA_KEY)")
+from collector import gg_data  # noqa: E402
+
+
+@st.cache_data(ttl=3600, show_spinner="경기데이터드림 확인 중…")
+def _gg(name: str) -> tuple[dict, object]:
+    """(키 상태, 표). 저장된 CSV(python -m collector.gg_data)가 있으면 그것을, 없으면 키로 바로 받는다."""
+    status = gg_data.check_key()
+    saved = gg_data.load_saved(name)
+    if not saved.empty:
+        return status, saved
+    if not status["ok"]:
+        return status, None
+    try:
+        return status, gg_data.fetch_table(name)
+    except gg_data.GgDataError as e:
+        return {**status, "reason": f"키는 정상, 자료 받기 실패: {e}"}, None
+
+
+gg_status, police = _gg("police")
+if gg_status["ok"]:
+    st.success("경기데이터드림 키가 정상 작동합니다.")
+else:
+    st.warning(f"경기데이터드림 키 확인 실패: {gg_status['reason']}. "
+               "`.env` 또는 Streamlit Secrets에 `GG_DATA_KEY`를 넣고, 로컬에서는 "
+               "`python -m collector.gg_data --check`로 확인할 수 있습니다.")
+if police is not None and not police.empty:
+    po = gg_data.by_office(police, "지구대·파출소")
+    if not ot.empty:
+        po = po.merge(ot[["office", "teachers"]], on="office", how="left")
+        po["교원 1천 명당 관서"] = (po["지구대·파출소"] / po["teachers"] * 1000).round(2)
+    st.plotly_chart(px.bar(po, x="office", y="지구대·파출소", hover_data=[c for c in po.columns if c != "office"],
+                           labels={"office": "교육지원청"}), use_container_width=True)
+    st.caption(f"출처: 경기데이터드림 「{gg_data.SERVICES['police']['title']}」 ({len(police)}곳). "
+               "교원 대상 아동학대 신고가 접수·조사되는 관서의 분포로, 교육지원청과 경찰 협조 부담을 가늠하는 참고값입니다. "
+               "시뮬레이터의 처리시간에는 아직 넣지 않았습니다.")
