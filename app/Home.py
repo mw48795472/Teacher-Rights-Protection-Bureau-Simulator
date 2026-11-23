@@ -1,36 +1,99 @@
 import pandas as pd
 import streamlit as st
 
-from common import llm_badge, retriever, structures
+from common import llm_badge, retriever, simulate, structures
 
 st.set_page_config(page_title="교권보호국 시뮬레이터", page_icon="🏫", layout="wide")
 llm_badge()
 
-st.title("교권보호국 시뮬레이터")
-st.caption("경기도교육청 교권보호단 조직 개편을 조직이론으로 실험해 보는 발표용 데모")
-
 st.markdown(
     """
-**발표 질문**: 경기도교육청은 왜 교권보호 업무를 교육감 직속·전담관 중심 체계로 재조직했으며,
-이 체계는 어떤 조건에서 실제 교권 침해에 효과적으로 대응할 수 있는가?
-
-| 수업 개념 | 시뮬레이터에서 보는 것 |
-|---|---|
-| ① 조직환경 (개방체계·상황이론) | 언론 보도 같은 환경 압력으로 사안이 몰릴 때 구조별로 버티는 정도, 사안 특성(Perrow)과 구조의 적합성 |
-| ② 분업과 조정 (Gulick·Thompson·Perrow) | 교사가 직접 하던 조정을 조직이 맡을 때 접촉 기관 수·반복 진술·조정 메시지가 어떻게 바뀌는가 |
-
-**결론에서 제시한 실효성 조건 세 가지를 변수로 켜고 끕니다.**
-① 기존 조직과의 역할 구분(조례 제17조 연계절차) ② 안정적인 전담 인력(상근 수, 비상근 응답성) ③ 제도화(조례 제25조 업무매뉴얼)
-"""
+<style>
+.slide, .card {word-break:keep-all;}
+.slide {border:1px solid rgba(128,128,128,.25); border-radius:14px; padding:22px 26px; margin:6px 0 14px;
+        background: rgba(128,128,128,.04);}
+.kicker {font-size:.8rem; letter-spacing:.08em; opacity:.6; font-weight:600;}
+.slide h2 {font-size:1.55rem; margin:.25rem 0 .6rem; line-height:1.35;}
+.slide ul {margin:0; padding-left:1.1rem;} .slide li {margin:.2rem 0; font-size:1.02rem;}
+.hero h1 {font-size:2.3rem; margin:.2rem 0 .4rem;} .hero p {font-size:1.1rem; opacity:.8; margin:0;}
+.card {border:1px solid rgba(128,128,128,.25); border-radius:12px; padding:16px 18px; height:100%;}
+.card .badge {display:inline-block; font-size:.75rem; font-weight:700; padding:2px 8px; border-radius:999px;
+              background:rgba(42,111,219,.12); color:#2a6fdb;}
+.card h4 {margin:.5rem 0 .4rem; font-size:1.05rem; line-height:1.35;}
+.card ul {margin:0; padding-left:1rem;} .card li {font-size:.92rem; margin:.15rem 0;}
+.cond {text-align:center;} .cond .num {font-size:2rem; font-weight:800; opacity:.35;}
+</style>
+""",
+    unsafe_allow_html=True,
 )
 
-st.subheader("비교할 조직 구조")
-st.caption("시뮬레이션의 A·B0·B·C는 아래 네 가지 조직 방식을 뜻합니다. 같은 사안 흐름을 네 구조에 똑같이 넣어 비교합니다.")
+
+def slide(kicker: str, headline: str, bullets: list[str]):
+    items = "".join(f"<li>{b}</li>" for b in bullets)
+    st.markdown(f'<div class="slide"><div class="kicker">{kicker}</div><h2>{headline}</h2><ul>{items}</ul></div>',
+                unsafe_allow_html=True)
+
+
+st.markdown('<div class="slide hero"><div class="kicker">조직이론 팀 프로젝트 · 발표용 데모</div>'
+            "<h1>교권보호국 시뮬레이터</h1>"
+            "<p>경기도교육청 교권보호단 재조직을 조직이론으로 실험합니다.</p></div>", unsafe_allow_html=True)
+
+slide("01 · 질문", "교권보호 업무를 왜 교육감 직속·전담관 체계로 다시 짰고, 어떤 조건에서 효과가 있는가?", [
+    "<b>조직환경</b>: 사안이 몰릴 때 구조별로 얼마나 버티는가 (개방체계·상황이론, Burns &amp; Stalker)",
+    "<b>분업과 조정</b>: 교사가 하던 조정을 조직이 맡으면 무엇이 달라지는가 (Gulick·Thompson·Perrow)",
+])
+
+# 03 핵심 결과: 기본 설정 시뮬레이션에서 바로 계산
 S = structures()
-for k, s in S.items():
-    with st.container(border=True):
-        st.markdown(f"**{s['name']}**")
-        st.markdown(s.get("definition", s["description"]))
+try:
+    a, _ = simulate("A_distributed", 60, 3.0, 7, None, 1.0)
+    b, _ = simulate("B_gyeonggi", 60, 3.0, 7, None, 1.0)
+    have = True
+except Exception:
+    have = False
+
+st.markdown('<div class="kicker" style="margin-top:8px">02 · 비교하는 네 가지 구조</div>', unsafe_allow_html=True)
+cols = st.columns(len(S))
+for col, (k, s) in zip(cols, S.items()):
+    with col:
+        pts = "".join(f"<li>{x}</li>" for x in s.get("points", []))
+        st.markdown(f'<div class="card"><span class="badge">{s.get("short", k)}</span>'
+                    f'<h4>{s.get("tagline", s["name"])}</h4><ul>{pts}</ul></div>', unsafe_allow_html=True)
+
+st.markdown('<div class="kicker" style="margin-top:22px">03 · 핵심 결과 (기본 설정, 분산 구조 → 교권보호단)</div>',
+            unsafe_allow_html=True)
+if have:
+    m = [("종결까지", "closure_days", "근무일"), ("첫 응답까지", "first_response_h", "시간"),
+         ("교사가 찾아간 기관", "contacts", "곳"), ("같은 내용 반복 진술", "repeats", "번")]
+    mc = st.columns(4)
+    for c, (label, col, unit) in zip(mc, m):
+        va, vb = a[col].mean(), b[col].mean()
+        c.metric(label, f"{vb:.1f}{unit}", f"{(vb - va) / va * 100:+.0f}% (분산 {va:.1f}{unit})" if va else None,
+                 delta_color="inverse", border=True)
+    st.caption("가정값 위의 사고실험입니다. 절대 수치보다 차이의 방향과 크기로 읽어 주세요. 자세한 비교는 시뮬레이션 페이지에서.")
+
+st.markdown('<div class="kicker" style="margin-top:18px">04 · 실효성 조건 세 가지 (시뮬레이터에서 켜고 끔)</div>',
+            unsafe_allow_html=True)
+cc = st.columns(3)
+for c, (n, t, d) in zip(cc, [("①", "역할 구분", "기존 센터와의 연계절차<br>(조례 제17조)"),
+                             ("②", "안정적 전담 인력", "상근 수, 비상근 응답성"),
+                             ("③", "제도화", "업무매뉴얼<br>(조례 제25조)")]):
+    c.markdown(f'<div class="card cond"><div class="num">{n}</div><h4>{t}</h4><div>{d}</div></div>',
+               unsafe_allow_html=True)
+
+st.markdown('<div class="kicker" style="margin-top:22px">05 · 둘러보기</div>', unsafe_allow_html=True)
+nc = st.columns(4)
+for c, (icon, t, d) in zip(nc, [("📊", "시뮬레이션", "구조·조건별 수백 건 비교, 지도, 분석"),
+                                ("🧭", "사안 추적", "1호 사안이 누구를 거쳐 가는지"),
+                                ("🤖", "에이전트 시뮬레이션", "행동마다 법령·조례로 허용·차단 판정"),
+                                ("📚", "근거 자료", "법령·매뉴얼·조례와 데이터 출처")]):
+    c.markdown(f'<div class="card"><h4>{icon} {t}</h4><div style="font-size:.92rem">{d}</div></div>',
+               unsafe_allow_html=True)
+
+st.write("")
+with st.expander("구조별 자세한 정의"):
+    for k, s in S.items():
+        st.markdown(f"**{s['name']}**  \n{s.get('definition', s['description'])}")
         st.caption(f"이론: {s['theory']}")
 
 
@@ -52,9 +115,9 @@ def _row(s: dict) -> dict:
     }
 
 
-st.markdown("**한눈에 비교**")
-st.dataframe(pd.DataFrame([_row(s) for s in S.values()]).set_index("구조").T, width="stretch")
-st.caption("인원·응답 비율·개최 간격 중 출처가 없는 값은 가정값이며 시뮬레이션 사이드바에서 바꿀 수 있습니다.")
+with st.expander("한눈에 비교 (설정값)"):
+    st.dataframe(pd.DataFrame([_row(s) for s in S.values()]).set_index("구조").T, width="stretch")
+    st.caption("인원·응답 비율·개최 간격 중 출처가 없는 값은 가정값이며 시뮬레이션 사이드바에서 바꿀 수 있습니다.")
 
 with st.expander("용어 정리"):
     st.markdown(
@@ -75,17 +138,7 @@ with st.expander("용어 정리"):
 """
     )
 
-st.subheader("메뉴")
-st.markdown(
-    """
-- **시뮬레이션**: 구조와 조건을 고르고 수백 건의 사안을 돌려 지표를 비교합니다. Claude가 결과를 이론·조문 근거로 설명합니다.
-- **사안 추적**: 1호 사안 같은 시나리오 1건이 구조마다 누구를 거쳐 처리되는지 따라갑니다.
-- **에이전트 시뮬레이션**: 행위자 에이전트의 행동을 규제 컴플라이언스 에이전트가 법령·조례로 심사해 허용·차단합니다.
-- **근거 자료**: 시뮬레이터가 인용하는 조례·정책·이론 자료를 검색합니다.
-"""
-)
-
 n = len(retriever().docs)
 unverified = sum(not d.verified for d in retriever().docs)
-st.warning(f"지식베이스 문서 {n}개 중 {unverified}개는 팀 요약입니다. `python -m collector.pipeline`으로 원문을 수집하면 대체됩니다. "
-           "처리시간·확률 대부분은 가정값이므로 결과는 이론의 논리를 보여주는 사고실험으로 다뤄 주세요.")
+st.caption(f"지식베이스 문서 {n}개 중 {unverified}개는 팀 요약입니다. 처리시간·확률 대부분은 가정값이므로 "
+           "결과는 이론의 논리를 보여주는 사고실험으로 다뤄 주세요.")
