@@ -171,3 +171,22 @@ def test_edufin_frame_and_committee_join():
     fis = tr.edufin_by_sido(fd, "AMT")
     cv = tr.committee_vs_fiscal(fis, "AMT")
     assert len(cv) == 17 and (cv["재정 기준 연도"] == 2024).all() and cv["심의 건수 / 재정 1조"].notna().all()
+
+
+def test_fiscal_regression():
+    cv = pd.DataFrame({"시도": list(tr.SIDO_SHORT), "AMT": [(i + 1) * 1e12 for i in range(17)],
+                       "심의 건수 (2024.3.28~6.30)": [10 + 5 * (i + 1) + (i % 3) for i in range(17)]})
+    reg, rt = tr.fiscal_regression(cv, "AMT")
+    assert reg["n"] == 17 and 4.5 < reg["slope"] < 5.5 and reg["r2"] > 0.9 and reg["p"] < 0.001
+    assert "잔차 (실제−예측)" in rt and len(rt) == 17
+
+
+def test_kosis_url_and_relaxed_search(monkeypatch):
+    from collector import kosis
+    assert kosis.candidate_tables({"url": "https://kosis.kr/statHtml/statHtml.do?orgId=101&tblId=DT_1YL20711"})[0]["TBL_ID"] == "DT_1YL20711"
+    monkeypatch.setenv("KOSIS_KEY", "x")
+    monkeypatch.setattr(kosis, "_get", lambda path, client=None, **p: [
+        {"ORG_ID": "101", "TBL_ID": "DT_X", "TBL_NM": "시·도별 학교급별 교원수"},
+        {"ORG_ID": "334", "TBL_ID": "DT_Y", "TBL_NM": "학교급별 학생수"}])
+    c = kosis.candidate_tables({"orgId": "334"})
+    assert [r["TBL_ID"] for r in c] == ["DT_X"] and "DT_Y" in kosis.hits_summary()

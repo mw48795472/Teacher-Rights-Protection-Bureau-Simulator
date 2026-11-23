@@ -146,11 +146,31 @@ with t6:
             cv = tr.committee_vs_fiscal(fis, value)
             if not cv.empty:
                 st.markdown("**교권보호위원회 심의 건수와 재정 규모 (2024)**")
-                st.plotly_chart(px.scatter(cv, x=value, y="심의 건수 (2024.3.28~6.30)", text="시도",
-                                           title="재정 규모가 큰 시도일수록 심의 건수도 많은가"),
-                                width="stretch")
-                st.dataframe(cv.sort_values("심의 건수 / 재정 1조", ascending=False), hide_index=True,
-                             width="stretch")
+                reg, rt = tr.fiscal_regression(cv, value)
+                fig = px.scatter(cv, x=value, y="심의 건수 (2024.3.28~6.30)", text="시도",
+                                 title="재정 규모가 큰 시도일수록 심의 건수도 많은가")
+                if reg:
+                    xs = cv[value].sort_values()
+                    fig.add_scatter(x=xs, y=reg["intercept"] + reg["slope"] * xs / 1e12, mode="lines",
+                                    name="회귀선", line=dict(dash="dash"))
+                st.plotly_chart(fig, width="stretch")
+                if reg:
+                    st.markdown("**단순 회귀분석: 심의 건수 = a + b × 재정(조원)**")
+                    m1, m2, m3, m4 = st.columns(4)
+                    m1.metric("기울기 b (재정 1조원당 건)", f"{reg['slope']:.1f}", help=f"표준오차 {reg['se']:.1f}")
+                    m2.metric("R²", f"{reg['r2']:.2f}")
+                    m3.metric("p값", f"{reg['p']:.3f}")
+                    m4.metric("순위상관 (스피어만)", f"{reg['spearman']:.2f}", help=f"p={reg['spearman_p']:.3f}")
+                    sig = "통계적으로 유의합니다(p<0.05)" if reg["p"] < 0.05 else "통계적으로 유의하지 않습니다(p≥0.05)"
+                    st.caption(f"재정이 1조원 많은 시도는 3개월 심의 건수가 평균 {reg['slope']:.1f}건 많고, 재정 규모가 "
+                               f"시도 간 심의 건수 차이의 {reg['r2'] * 100:.0f}%를 설명합니다. 이 관계는 {sig}. "
+                               f"다만 n={reg['n']}개 시도·한 시점 자료라 인과가 아니라 규모 효과를 본 것이고, 학생·교원 수가 "
+                               "재정과 심의 건수를 함께 키우는 공통 원인일 수 있습니다. 잔차가 양수인 시도는 재정 규모로 "
+                               "예상되는 것보다 심의 건수가 많은 곳입니다.")
+                    st.dataframe(rt, hide_index=True, width="stretch")
+                else:
+                    st.dataframe(cv.sort_values("심의 건수 / 재정 1조", ascending=False), hide_index=True,
+                                 width="stretch")
                 st.caption("심의 건수는 보도 값(신뢰도 C), 재정은 지방교육재정알리미 결산 공시. "
                            "재정 규모 대비 심의 건수가 큰 시도는 같은 재정 여건에서 교권 사안 부담이 큰 곳입니다. "
                            "교권보호단 전용 예산은 정보공개청구로 받아야 합니다.")

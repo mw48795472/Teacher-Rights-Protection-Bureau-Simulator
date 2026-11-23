@@ -250,3 +250,19 @@ def committee_vs_fiscal(fiscal: pd.DataFrame, value: str) -> pd.DataFrame:
     out["재정 기준 연도"] = y
     out["심의 건수 / 재정 1조"] = out["심의 건수 (2024.3.28~6.30)"] / (out[value] / 1e12)
     return out
+
+
+def fiscal_regression(cv: pd.DataFrame, value: str, y: str = "심의 건수 (2024.3.28~6.30)") -> tuple[dict, pd.DataFrame]:
+    """단순 회귀: 심의 건수 = a + b × 재정(조원). 결과 요약과, 시도별 예측값·잔차를 붙인 표."""
+    from scipy import stats
+    d = cv.dropna(subset=[value, y]).copy()
+    if len(d) < 3:
+        return {}, d
+    x = d[value] / 1e12
+    r = stats.linregress(x, d[y])
+    rho, p_rho = stats.spearmanr(x, d[y])
+    d["예측 심의 건수"] = (r.intercept + r.slope * x).round(1)
+    d["잔차 (실제−예측)"] = (d[y] - d["예측 심의 건수"]).round(1)
+    summary = {"n": len(d), "slope": r.slope, "intercept": r.intercept, "r2": r.rvalue ** 2, "p": r.pvalue,
+               "se": r.stderr, "spearman": rho, "spearman_p": p_rho}
+    return summary, d.sort_values("잔차 (실제−예측)", ascending=False, ignore_index=True)

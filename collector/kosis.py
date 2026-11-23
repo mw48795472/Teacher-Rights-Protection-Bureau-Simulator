@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -85,19 +86,46 @@ def teachers_table(rows: list[dict], item: str | None = None) -> pd.DataFrame:
     return df.groupby(["시도", "연도"], as_index=False)["교원수"].sum()
 
 
+LAST_HITS: list[dict] = []   # 마지막 검색 결과 (진단용)
+_URL_IDS = re.compile(r"orgId=(\w+).*?tblId=(\w+)")
+
+
 def candidate_tables(t: dict, client=None) -> list[dict]:
-    """통계표 ID가 비어 있으면 KOSIS 검색으로 후보를 찾는다 (같은 기관, 이름에 '교원'과 '시도')."""
+    """통계표 후보. 1) tblId 2) KOSIS 표 주소(url: …statHtml.do?orgId=…&tblId=…) 3) KOSIS 통계표 검색.
+    검색은 기관을 가리지 않고 이름에 '교원'과 시도 표시('시도'·'시·도'·'지역')가 있는 표를 고른다.
+    기관이 orgId 와 같은 표를 앞에 둔다."""
+    global LAST_HITS
     if t.get("tblId"):
         return [{"ORG_ID": t.get("orgId", "334"), "TBL_ID": t["tblId"], "TBL_NM": t.get("tblNm", "")}]
-    out, seen = [], set()
-    for q in t.get("search") or ["시도별 교원수", "시도별 교원 현황"]:
-        for r in _get("statisticsSearch.do", client, searchNm=q):
+    m = _URL_IDS.search(str(t.get("url") or ""))
+    if m:
+        return [{"ORG_ID": m.group(1), "TBL_ID": m.group(2), "TBL_NM": t.get("tblNm", "")}]
+    out, seen, hits = [], set(), []
+    for q in t.get("search") or ["시도별 교원수", "시도별 교원 현황", "교원수", "학교급별 교원수"]:
+        try:
+            rows = _get("statisticsSearch.do", client, searchNm=q)
+        except KosisError:
+            continue
+        hits += rows
+        for r in rows:
             nm = str(r.get("TBL_NM", ""))
-            if str(r.get("ORG_ID")) == str(t.get("orgId", "334")) and "교원" in nm and "시도" in nm \
-                    and r.get("TBL_ID") not in seen:
+            if "교원" in nm and any(k in nm for k in ("시도", "시·도", "시군구", "지역")) and r.get("TBL_ID") not in seen:
                 seen.add(r.get("TBL_ID"))
                 out.append(r)
-    return out
+    LAST_HITS = hits
+    org = str(t.get("orgId", "334"))
+    return sorted(out, key=lambda r: str(r.get("ORG_ID")) != org)
+
+
+def hits_summary(n: int = 8) -> str:
+    seen, rows = set(), []
+    for r in LAST_HITS:
+        k = (r.get("ORG_ID"), r.get("TBL_ID"))
+        if k in seen:
+            continue
+        seen.add(k)
+        rows.append(f"{r.get('TBL_NM')} ({r.get('ORG_ID')}/{r.get('TBL_ID')})")
+    return "; ".join(rows[:n])
 
 
 def fetch_teachers(cfg: dict | None = None, client=None) -> pd.DataFrame:
@@ -128,7 +156,8 @@ def status() -> dict:
     try:
         df = fetch_teachers()
     except KosisError as e:
-        return {"ok": False, "reason": str(e)}
+        found = hits_summary()
+        return {"ok": False, "reason": str(e) + (f" · 검색된 표: {found}" if found else " · 검색 결과 없음")}
     return {"ok": True, "reason": f"{len(df)}행", "table": df.attrs.get("table", "")}
 
 
