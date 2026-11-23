@@ -2,6 +2,9 @@ import pandas as pd
 import streamlit as st
 import yaml
 
+import fresh  # noqa: E402  새 배포 뒤 낡은 모듈을 먼저 다시 읽는다 (common·sim 을 불러오기 전에)
+
+fresh.ensure()
 from common import ROOT, llm_badge, retriever, simulate, structures
 from sim import hypotheses as H
 
@@ -69,6 +72,10 @@ a.h-link .go {margin-top: auto; padding-top: .6rem; font-size: .85rem; font-weig
 .h-h .claim {font-size: .95rem; font-weight: 600; line-height: 1.5; margin: 0 0 .5rem;}
 .h-h .meta {font-size: .82rem; opacity: .65; margin-bottom: .35rem;}
 .h-h .ev {font-size: .88rem; padding: 7px 10px; border-radius: 8px; background: rgba(128,128,128,.07);}
+.h-tag {display: inline-block; font-size: .78rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; margin-right: 6px;}
+.h-tag.sim {background: rgba(251,146,60,.14); color: #c2410c;}
+.h-tag.agent {background: rgba(139,92,246,.14); color: #6d28d9;}
+.h-tag.real {background: rgba(33,150,83,.14); color: #1f8a4c;}
 .h-h .note {font-size: .84rem; opacity: .8; margin-top: .45rem;}
 .h-h .go {margin-top: auto; padding-top: .55rem; font-size: .84rem; font-weight: 600; color: #2a6fdb; text-decoration: none;}
 .h-flow {display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 4px; font-size: .85rem;}
@@ -134,6 +141,7 @@ NOTES = {  # 지지되지 않거나 부분 지지일 때 읽는 법
     "H5": "인수인계는 줄지만 인천형은 전문가 풀이 작아(가정) 대기가 길어집니다. 인력의 안정성과 규모 사이의 "
           "상충으로, 적합성은 구조 하나가 아니라 인력 구성과 함께 정해진다는 Van de Ven의 주장과 맞닿아 있습니다.",
 }
+SRC = {"*": '<span class="h-tag sim">🧪 가상 데이터</span>', "H6": '<span class="h-tag agent">🎭 가상 시뮬레이션</span>'}
 CLS = {H.SUPPORT: "v-ok", H.PARTIAL: "v-part", H.NOT: "v-no"}
 cards = []
 for h in T["hypotheses"]:
@@ -145,12 +153,16 @@ for h in T["hypotheses"]:
         f'<span class="th">개념 {h["concept"]} · {h["theory"]}</span>'
         f'<span class="v {CLS.get(v, "v-na")}">{v}</span></div>'
         f'<p class="claim">{h["claim"]}</p><div class="meta">비교: {h["compare"]}</div>'
-        f'<div class="ev">{ev}</div>' + (f'<div class="note">{note}</div>' if note else "")
+        f'<div class="ev">{SRC.get(h["id"], SRC["*"])}{ev}</div>' + (f'<div class="note">{note}</div>' if note else "")
         + f'<a class="go" href="{LINK.get(page, page)}" target="_self">{h["page"]}에서 보기 →</a></div>')
 html(section("02", "가설과 검증", "기본 설정 · 60일 · 하루 3건 · 시드 7") +
      f'<div class="h-grid wide">{"".join(cards)}</div>'
-     '<div class="h-note">판정은 기본 설정 시뮬레이션 결과를 규칙으로 읽은 것입니다. 가정값 위의 사고실험이므로 '
-     "구조 간 차이의 방향으로 읽어 주세요.</div>")
+     '<div class="h-note">판정은 기본 설정 시뮬레이션 결과를 규칙으로 읽은 것입니다. 근거 수치는 모두 '
+     "<b>가상 데이터</b>(시뮬레이션이 만든 합성 사안)이며 실제 운영 통계가 아닙니다. 가정값 위의 사고실험이므로 "
+     "구조 간 차이의 방향으로 읽어 주세요.</div>"
+     '<div class="h-note"><span class="h-tag sim">🧪 가상 데이터</span>시뮬레이션 합성 사안·가정값 '
+     '<span class="h-tag agent">🎭 가상 시나리오</span>에이전트 장면·드라마 설정 '
+     '<span class="h-tag real">📏 실측</span>공공데이터·법령 원문·보도 통계</div>')
 
 # ── 03 실험 조건: 네 가지 구조 ──
 cards = "".join(
@@ -208,7 +220,8 @@ def _row(s: dict) -> dict:
 
 with tab_cmp:
     st.dataframe(pd.DataFrame([_row(s) for s in S.values()]).set_index("구조").T, width="stretch")
-    st.caption("인원·응답 비율·개최 간격 중 출처가 없는 값은 가정값이며 시뮬레이션 사이드바에서 바꿀 수 있습니다.")
+    st.caption(":orange-badge[🧪 가정값 포함] 인원·응답 비율·개최 간격 중 출처가 없는 값은 가정값이며 시뮬레이션 "
+               "사이드바에서 바꿀 수 있습니다.")
 
 with tab_terms:
     st.markdown(

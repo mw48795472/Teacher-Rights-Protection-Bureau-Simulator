@@ -3,7 +3,10 @@ import json
 import pandas as pd
 import streamlit as st
 
-from common import llm_badge, retriever, scenarios
+import fresh  # noqa: E402  새 배포 뒤 낡은 모듈을 먼저 다시 읽는다 (common·sim 을 불러오기 전에)
+
+fresh.ensure()
+from common import data_label, llm_badge, retriever, scenario_kind, scenarios
 from agents.llm import llm_enabled, model_name
 from agents.roles import STRUCTURES
 from agents.drama import adapt, build_script, script_text
@@ -37,6 +40,7 @@ keys = c2.multiselect("조직 구조", list(STRUCTURES), default=["integrated", 
 max_turns = c3.slider("최대 행동 수", 6, 40, 26)
 spec = sc[pick]
 st.caption(spec.get("description", ""))
+data_label("agent", scenario_kind(spec) + " 인물의 대사·행동은 에이전트가 지어낸 가상 장면이고, 허용·차단 판정만 실제 법령·조례를 인용합니다.")
 
 COLOR = {"허용": "green", "조건부 허용": "orange", "차단": "red"}
 
@@ -57,6 +61,7 @@ if not runs:
     st.stop()
 
 st.subheader("요약")
+data_label("agent", "아래 수치는 가상 장면을 판정한 횟수입니다. 실제 사건 통계가 아닙니다.")
 summary = {STRUCTURES[k].name: {m: ("예" if v is True else "아니오" if v is False else v) for m, v in r.metrics.items()}
            for k, r in runs.items()}
 st.dataframe(pd.DataFrame(summary).astype(str), width="stretch")
@@ -115,6 +120,7 @@ def show_script(k: str, run):
 
 tab_drama, tab_log = st.tabs(["🎬 드라마 대본", "⚖️ 판정 로그"])
 with tab_drama:
+    data_label("agent", "대본 전체가 가상 장면입니다. 실존 인물·실제 사건 기록이 아닙니다.")
     st.caption("실행 기록을 장면(S#)으로 엮은 대본입니다. 인물이 한 행동과 막힌 행동은 기록 그대로이고, 법적 판정은 자막으로 "
                "나옵니다. 오프라인 예시 모드의 대사는 연출용 예시입니다.")
     eps = st.tabs([STRUCTURES[k].name for k in runs])
