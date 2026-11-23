@@ -220,6 +220,11 @@ def edufin_frame(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         if v.notna().mean() >= 0.8 and v.nunique() > 5:
             d[c] = v
             nums.append(c)
+    # 번호 칸(IDX·SEQ·ID·CODE 등)은 금액이 아니다. 금액 칸(AMT)이 있으면 그것만 쓴다.
+    ids = ("IDX", "SEQ", "ID", "NO", "CD", "CODE", "번호", "코드", "순번")
+    nums = [c for c in nums if not any(str(c).upper() == k or str(c).upper().endswith("_" + k) for k in ids)]
+    amt = [c for c in nums if "AMT" in str(c).upper() or "금액" in str(c)]
+    nums = amt or nums
     cats = [c for c in texts if c != sido_col and c not in nums and 1 < d[c].nunique() <= 300]
     d = d.dropna(subset=["시도"])
     return d, {"sido": sido_col, "year": year_col, "nums": nums, "cats": cats}
