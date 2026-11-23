@@ -8,6 +8,7 @@ from sim.explain import narrate_case
 st.set_page_config(page_title="사안 추적", page_icon="🏫", layout="wide")
 llm_badge()
 st.title("사안 추적")
+st.caption("보는 것: 분업과 조정(Gulick·Thompson). 같은 사안이 구조에 따라 누구를 거치고, 교사가 몇 번 다시 진술하는지.")
 st.caption("시나리오 사안 1건을 평소 업무량 속에 넣고, 구조마다 누구를 거쳐 처리되는지 비교합니다.")
 
 S = structures()

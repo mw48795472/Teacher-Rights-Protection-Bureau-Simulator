@@ -1,7 +1,9 @@
 import pandas as pd
 import streamlit as st
+import yaml
 
-from common import llm_badge, retriever, simulate, structures
+from common import ROOT, llm_badge, retriever, simulate, structures
+from sim import hypotheses as H
 
 st.set_page_config(page_title="교권보호국 시뮬레이터", page_icon="🏫", layout="wide")
 llm_badge()
@@ -45,9 +47,41 @@ a.h-link {text-decoration: none; color: inherit; transition: border-color .15s, 
 a.h-link:hover {border-color: #2a6fdb; transform: translateY(-2px);}
 a.h-link .go {margin-top: auto; padding-top: .6rem; font-size: .85rem; font-weight: 600; color: #2a6fdb;}
 .h-note {font-size: .85rem; opacity: .6; margin-top: 8px;}
+.h-hero .ans {margin-top: 1rem; padding: 12px 16px; border-radius: 10px; background: rgba(255,255,255,.55);
+              border-left: 4px solid #2a6fdb; font-size: .98rem; line-height: 1.6;}
+@media (prefers-color-scheme: dark) {.h-hero .ans {background: rgba(0,0,0,.2);}}
+.h-hero .ans b {color: #2a6fdb;}
+.h-grid.wide {grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));}
+.h-concept h3 {font-size: 1.15rem; margin: 0 0 .15rem; padding: 0;}
+.h-concept .asks {font-size: .88rem; opacity: .65; margin-bottom: .7rem;}
+.h-th {padding: 10px 0; border-top: 1px dashed rgba(128,128,128,.25);}
+.h-th .nm {font-weight: 700; font-size: .98rem;} .h-th .who {font-size: .82rem; opacity: .6; margin-left: 6px;}
+.h-th .cl {font-size: .9rem; margin: .25rem 0 .2rem;}
+.h-th .ap {font-size: .88rem; opacity: .8;} .h-th .ap:before {content: "→ "; color: #2a6fdb; font-weight: 700;}
+.h-hyp {font-size: .72rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: 6px;
+        border: 1px solid rgba(42,111,219,.4); color: #2a6fdb; vertical-align: 1px;}
+.h-h .top {display: flex; align-items: center; gap: 8px; margin-bottom: .45rem;}
+.h-h .id {font-weight: 800; color: #2a6fdb; font-size: 1.05rem;}
+.h-h .th {font-size: .8rem; opacity: .65;}
+.h-h .v {margin-left: auto; font-size: .78rem; font-weight: 700; padding: 2px 9px; border-radius: 999px;}
+.v-ok {background: rgba(33,150,83,.14); color: #1f8a4c;} .v-part {background: rgba(230,145,20,.16); color: #b26a00;}
+.v-no {background: rgba(214,69,65,.14); color: #c0392b;} .v-na {background: rgba(128,128,128,.15);}
+.h-h .claim {font-size: .95rem; font-weight: 600; line-height: 1.5; margin: 0 0 .5rem;}
+.h-h .meta {font-size: .82rem; opacity: .65; margin-bottom: .35rem;}
+.h-h .ev {font-size: .88rem; padding: 7px 10px; border-radius: 8px; background: rgba(128,128,128,.07);}
+.h-h .note {font-size: .84rem; opacity: .8; margin-top: .45rem;}
+.h-h .go {margin-top: auto; padding-top: .55rem; font-size: .84rem; font-weight: 600; color: #2a6fdb; text-decoration: none;}
+.h-flow {display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 4px; font-size: .85rem;}
+.h-flow span {padding: 3px 10px; border-radius: 999px; background: rgba(42,111,219,.10); color: #2a6fdb; font-weight: 600;}
+.h-flow i {opacity: .5; font-style: normal;}
+.h-limits li {font-size: .9rem; margin: .25rem 0; opacity: .85;}
 </style>
 """
+
 st.markdown(CSS, unsafe_allow_html=True)
+T = yaml.safe_load((ROOT / "config" / "theory.yaml").read_text(encoding="utf-8"))
+S = structures()
+LINK = {"시뮬레이션": "시뮬레이션", "에이전트 시뮬레이션": "에이전트_시뮬레이션"}
 
 
 def html(s: str):
@@ -59,31 +93,79 @@ def section(n: str, title: str, sub: str = "") -> str:
             f'<span class="s">{sub}</span></div>')
 
 
-# 히어로: 제목 + 연구 질문
-html('<div class="h-hero"><div class="tag">조직이론 팀 프로젝트 · 발표용 데모</div>'
+# ── 연구 질문과 답 ──
+html('<div class="h-hero"><div class="tag">조직이론 팀 프로젝트 · 경기도교육청 교권보호단 사례</div>'
      "<h1>교권보호국 시뮬레이터</h1>"
-     '<p class="lead">경기도교육청 교권보호단 재조직을 조직이론으로 실험합니다.</p>'
-     '<p class="h-q">교권보호 업무를 왜 교육감 직속·전담관 체계로 다시 짰고, 어떤 조건에서 효과가 있는가?</p>'
-     "<ul><li><b>조직환경</b>: 사안이 몰릴 때 구조별로 얼마나 버티는가 (개방체계·상황이론, Burns &amp; Stalker)</li>"
-     "<li><b>분업과 조정</b>: 교사가 하던 조정을 조직이 맡으면 무엇이 달라지는가 (Gulick·Thompson·Perrow)</li>"
-     "</ul></div>")
+     f'<p class="h-q">{T["question"]}</p>'
+     '<div class="h-flow"><span>질문</span><i>→</i><span>이론</span><i>→</i><span>가설</span><i>→</i>'
+     "<span>시뮬레이션 검증</span><i>→</i><span>결론</span></div>"
+     f'<div class="ans"><b>결론 한 줄</b><br>{T["answer"]}</div></div>')
 
-S = structures()
+# ── 01 이론 틀 ──
+panels = []
+for c in T["concepts"]:
+    items = "".join(
+        f'<div class="h-th"><span class="nm">{t["name"]}</span><span class="who">{t["who"]}</span>'
+        + (f'<span class="h-hyp">{t["hyp"]}</span>' if t.get("hyp") else "")
+        + f'<div class="cl">{t["claim"]}</div><div class="ap">{t["apply"]}</div></div>'
+        for t in c["theories"])
+    panels.append(f'<div class="h-card h-concept"><h3>개념 {c["num"]} {c["title"]}</h3>'
+                  f'<div class="asks">{c["asks"]}</div>{items}</div>')
+html(section("01", "이론 틀: 수업 개념 두 가지", "→ 이론마다 검증할 가설 번호") +
+     f'<div class="h-grid wide">{"".join(panels)}</div>')
 
-# 01 비교하는 구조
+# ── 02 가설과 검증 (기본 설정 시뮬레이션으로 바로 판정) ──
+SURGE_DAY = 20
+try:
+    base = {k: simulate(k, 60, 3.0, 7, None, 1.0)[0] for k in S}
+    surge = {k: simulate(k, 60, 3.0, 7, SURGE_DAY, 2.0)[0] for k in ("A_distributed", "B_gyeonggi")}
+    verdicts = {
+        "H1": H.h1(base["A_distributed"], base["B_gyeonggi"]),
+        "H2": H.h2(base["A_distributed"], base["B_gyeonggi"]),
+        "H3": H.h3(surge["A_distributed"], surge["B_gyeonggi"], SURGE_DAY),
+        "H4": H.h4(base["B0_gyeonggi_launch"], base["B_gyeonggi"]),
+        "H5": H.h5(base["B_gyeonggi"], base["C_incheon"]),
+    }
+except Exception:
+    base, verdicts = None, {}
+verdicts.setdefault("H6", ("페이지에서 실행", "행동마다 법령·조례 근거로 허용·조건부 허용·차단을 판정합니다. "
+                           "드라마식 '물리적 제지'와 '직접 사실조사'가 권한 초과로 막히는지 확인합니다."))
+NOTES = {  # 지지되지 않거나 부분 지지일 때 읽는 법
+    "H3": "교권보호단도 상근 전담관 수가 고정이라 급증 때 주 담당 대기가 쌓입니다. 분산 구조는 원래 위원회 대기가 "
+          "길어 급증 영향이 묻힙니다. 유기적 구조의 이점은 인력을 사안에 다시 묶을 수 있을 때 나타난다는 해석이 "
+          "가능합니다 (시뮬레이션 사이드바에서 상근 인원을 바꿔 확인).",
+    "H5": "인수인계는 줄지만 인천형은 전문가 풀이 작아(가정) 대기가 길어집니다. 인력의 안정성과 규모 사이의 "
+          "상충으로, 적합성은 구조 하나가 아니라 인력 구성과 함께 정해진다는 Van de Ven의 주장과 맞닿아 있습니다.",
+}
+CLS = {H.SUPPORT: "v-ok", H.PARTIAL: "v-part", H.NOT: "v-no"}
+cards = []
+for h in T["hypotheses"]:
+    v, ev = verdicts.get(h["id"], ("계산 실패", ""))
+    note = NOTES.get(h["id"]) if v in (H.PARTIAL, H.NOT) else ""
+    page = h["page"].split(" (")[0]
+    cards.append(
+        f'<div class="h-card h-h"><div class="top"><span class="id">{h["id"]}</span>'
+        f'<span class="th">개념 {h["concept"]} · {h["theory"]}</span>'
+        f'<span class="v {CLS.get(v, "v-na")}">{v}</span></div>'
+        f'<p class="claim">{h["claim"]}</p><div class="meta">비교: {h["compare"]}</div>'
+        f'<div class="ev">{ev}</div>' + (f'<div class="note">{note}</div>' if note else "")
+        + f'<a class="go" href="{LINK.get(page, page)}" target="_self">{h["page"]}에서 보기 →</a></div>')
+html(section("02", "가설과 검증", "기본 설정 · 60일 · 하루 3건 · 시드 7") +
+     f'<div class="h-grid wide">{"".join(cards)}</div>'
+     '<div class="h-note">판정은 기본 설정 시뮬레이션 결과를 규칙으로 읽은 것입니다. 가정값 위의 사고실험이므로 '
+     "구조 간 차이의 방향으로 읽어 주세요.</div>")
+
+# ── 03 실험 조건: 네 가지 구조 ──
 cards = "".join(
     f'<div class="h-card"><span class="badge">{s.get("short", k)}</span><h4>{s.get("tagline", s["name"])}</h4>'
     f'<ul>{"".join(f"<li>{x}</li>" for x in s.get("points", []))}</ul></div>'
     for k, s in S.items())
-html(section("01", "비교하는 네 가지 구조") + f'<div class="h-grid">{cards}</div>')
+html(section("03", "실험 조건: 비교하는 네 가지 구조", "같은 사안 흐름을 네 구조에 똑같이 넣음") +
+     f'<div class="h-grid">{cards}</div>')
 
-# 02 핵심 결과: 기본 설정 시뮬레이션에서 바로 계산
-try:
-    a, _ = simulate("A_distributed", 60, 3.0, 7, None, 1.0)
-    b, _ = simulate("B_gyeonggi", 60, 3.0, 7, None, 1.0)
-except Exception:
-    a = b = None
-if a is not None:
+# ── 04 핵심 결과 ──
+if base:
+    a, b = base["A_distributed"], base["B_gyeonggi"]
     stats = []
     for label, col, unit in [("종결까지", "closure_days", "근무일"), ("첫 응답까지", "first_response_h", "시간"),
                              ("교사가 찾아간 기관", "contacts", "곳"), ("같은 내용 반복 진술", "repeats", "번")]:
@@ -92,28 +174,29 @@ if a is not None:
         stats.append(f'<div class="h-card h-stat"><div class="label">{label}</div>'
                      f'<div class="val">{vb:.1f}{unit}</div><div class="from">분산 구조 {va:.1f}{unit}</div>'
                      f'<span class="chg{" up" if d > 0 else ""}">{d:+.0f}%</span></div>')
-    html(section("02", "핵심 결과", "기본 설정 · 분산 구조 → 교권보호단") + f'<div class="h-grid sm">{"".join(stats)}</div>'
-         '<div class="h-note">가정값 위의 사고실험입니다. 절대 수치보다 차이의 방향과 크기로 읽어 주세요. '
-         "자세한 비교는 시뮬레이션 페이지에서 볼 수 있습니다.</div>")
+    html(section("04", "핵심 결과", "분산 구조 → 교권보호단") + f'<div class="h-grid sm">{"".join(stats)}</div>')
 
-# 03 실효성 조건
+# ── 05 결론: 실효성 조건과 한계 ──
 conds = "".join(
     f'<div class="h-card h-cond"><div class="num">{n}</div><div><h4>{t}</h4><p>{d}</p></div></div>'
-    for n, t, d in [("1", "역할 구분", "기존 센터와의 연계절차 (조례 제17조)"),
-                    ("2", "안정적 전담 인력", "상근 수와 비상근 응답성"),
-                    ("3", "제도화", "업무매뉴얼 (조례 제25조)")])
-html(section("03", "실효성 조건 세 가지", "시뮬레이터에서 켜고 끌 수 있음") + f'<div class="h-grid">{conds}</div>')
+    for n, t, d in [("1", "역할 구분", "기존 센터와의 연계절차 (조례 제17조) · H4"),
+                    ("2", "안정적 전담 인력", "상근 수와 비상근 응답성 · H5"),
+                    ("3", "제도화", "업무매뉴얼 (조례 제25조)과 성과평가 · H4")])
+limits = "".join(f"<li>{x}</li>" for x in T["limits"])
+html(section("05", "결론: 실효성 조건과 한계", "시뮬레이터에서 조건을 켜고 끌 수 있음") +
+     f'<div class="h-grid">{conds}</div>'
+     f'<div class="h-card" style="margin-top:12px"><h4>한계</h4><ul class="h-limits">{limits}</ul></div>')
 
-# 04 둘러보기 (페이지 링크)
-pages = [("📊", "시뮬레이션", "시뮬레이션", "구조·조건별 수백 건 비교, 관할 지도, 분석"),
-         ("🧭", "사안 추적", "사안_추적", "1호 사안이 누구를 거쳐 가는지"),
-         ("🤖", "에이전트 시뮬레이션", "에이전트_시뮬레이션", "행동마다 법령·조례로 허용·차단 판정"),
-         ("📚", "근거 자료", "근거_자료", "법령·매뉴얼·서식과 데이터 출처")]
+# ── 06 둘러보기 ──
+pages = [("📊", "시뮬레이션", "시뮬레이션", "H1~H5: 구조·조건별 수백 건 비교, 관할 지도, 분석"),
+         ("🧭", "사안 추적", "사안_추적", "1호 사안이 위원회 절차(서식 1~15)를 거치는 과정"),
+         ("🤖", "에이전트 시뮬레이션", "에이전트_시뮬레이션", "H6: 행동마다 법령·조례로 허용·차단 판정"),
+         ("📚", "근거 자료", "근거_자료", "법령·매뉴얼·서식, 데이터 출처와 API 상태")]
 links = "".join(f'<a class="h-card h-link" href="{p}" target="_self"><h4>{i} {t}</h4><p>{d}</p>'
                 f'<div class="go">열기 →</div></a>' for i, t, p, d in pages)
-html(section("04", "둘러보기") + f'<div class="h-grid sm">{links}</div>')
+html(section("06", "둘러보기") + f'<div class="h-grid sm">{links}</div>')
 
-html(section("05", "자세히"))
+html(section("07", "자세히"))
 tab_def, tab_cmp, tab_terms = st.tabs(["구조별 정의", "설정값 비교", "용어 정리"])
 with tab_def:
     for k, s in S.items():
