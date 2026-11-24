@@ -11,7 +11,7 @@ from agents.llm import llm_enabled, model_name
 from agents.roles import STRUCTURES
 from agents import digest, relmap
 from agents.drama import adapt, build_script, script_text
-from agents.runner import run_agents
+from agents.runner import MAX_TURNS, run_agents
 from sim import insights
 
 st.set_page_config(page_title="에이전트 시뮬레이션", page_icon="🏫", layout="wide")
@@ -37,7 +37,7 @@ c1, c2, c3 = st.columns([2, 2, 1])
 pick = c1.selectbox("시나리오", range(len(sc)), format_func=lambda i: sc[i]["name"])
 keys = c2.multiselect("조직 구조", ["integrated", "drama"], default=["integrated", "drama"],
                       format_func=lambda k: STRUCTURES[k].name)
-max_turns = c3.slider("최대 행동 수", 6, 40, 22)
+max_turns = c3.slider("최대 행동 수", 6, MAX_TURNS, 22, help="한 구조에서 행동은 최대 25회예요.")
 spec = sc[pick]
 st.caption(spec.get("description", ""))
 data_label("agent", scenario_kind(spec) + " 인물의 대사·행동은 에이전트가 지어낸 가상 장면이고, 허용·차단 판정만 실제 법령·조례를 인용합니다.")

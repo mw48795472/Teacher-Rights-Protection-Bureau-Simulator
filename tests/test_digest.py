@@ -63,3 +63,10 @@ def test_relmap_student_interactions_by_structure():
     for k in ("integrated", "distributed"):
         assert edges[k][("학교장", "학생 B")][0] == "plain"
 
+
+
+def test_max_turns_capped_at_25():
+    from agents.runner import MAX_TURNS
+    assert MAX_TURNS == 25
+    run = run_agents(SPEC, "integrated", _r(), max_turns=99)
+    assert len(run.turns) <= 25
