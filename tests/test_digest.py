@@ -30,7 +30,7 @@ def test_theory_rows_match_hypotheses_offline(monkeypatch):
 def test_theory_rows_without_distributed_skip_h1(monkeypatch):
     rows = digest.theory_rows(_runs(monkeypatch, ("integrated", "drama")))
     assert [r["가설"] for r in rows] == ["H6"]
-    assert "H1" in digest.takeaway(rows)
+    assert "전담관" in digest.takeaway(rows) and "분산" not in digest.takeaway(rows)
 
 
 def test_relmap_svg_has_every_role_and_run_counts(monkeypatch):
