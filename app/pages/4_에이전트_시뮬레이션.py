@@ -62,7 +62,7 @@ runs = st.session_state.get("agent_runs", {})
 st.subheader("🗺️ 한눈에 보는 인물관계도")
 map_keys = list(runs) or keys
 if runs:
-    st.caption("동그라미 위 숫자는 이번 실행에서 그 인물이 움직인 횟수예요. 흐린 인물은 한 번도 나서지 않았어요.")
+    st.caption("동그라미 위 숫자는 이번 실행에서 그 인물이 움직인 횟수예요. 흐린 인물은 한 번도 나서지 않았어요. 점선 동그라미의 학생들은 사건 속 인물로, 에이전트로 움직이지는 않아요.")
 else:
     st.caption("실행하면 인물마다 몇 번 움직였는지 함께 표시돼요.")
 st.markdown(relmap.legend_html(), unsafe_allow_html=True)
