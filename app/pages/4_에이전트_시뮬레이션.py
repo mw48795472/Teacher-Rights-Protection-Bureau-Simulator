@@ -9,6 +9,7 @@ fresh.ensure()
 from common import data_label, llm_badge, retriever, scenario_kind, scenarios
 from agents.llm import llm_enabled, model_name
 from agents.roles import STRUCTURES
+from agents import digest
 from agents.drama import adapt, build_script, script_text
 from agents.runner import run_agents
 from sim import insights
@@ -16,10 +17,9 @@ from sim import insights
 st.set_page_config(page_title="에이전트 시뮬레이션", page_icon="🏫", layout="wide")
 llm_badge()
 st.title("에이전트 시뮬레이션")
-st.caption("검증하는 가설: H6 법적 권한과 공식 구조. 드라마식 강제 개입은 권한 초과로 막히고 조정 중심 구조만 제도 안에서 작동하는가.")
-st.caption("한 편의 드라마를 쓰듯 돌아갑니다. 인물(행위자 에이전트)이 성향대로 다음 장면을 만들면, 규제 컴플라이언스 "
-           "에이전트가 법령·조례를 찾아 그 장면이 현실에서 가능한지 허용·조건부 허용·차단으로 판정합니다. "
-           "결과는 대본과 판정 로그로 볼 수 있습니다.")
+st.caption("검증하는 가설: **H6** 드라마식 강제 개입은 권한 초과로 막히는가 · **H1** 주 담당 전담관이 교사의 발품을 줄이는가.")
+st.caption("인물 에이전트가 성향대로 행동하면, 컴플라이언스 에이전트가 법령·조례로 허용·조건부·차단을 판정합니다. "
+           "결과는 ① 이론과의 대응 → ② 핵심 장면 순으로 보여 주고, 전체 대본과 판정 로그는 맨 아래에 접어 둡니다.")
 
 if llm_enabled():
     st.success(f"Claude 에이전트 모드 ({model_name()}). 한 번 실행에 행동 수 × 2회 API 호출이 듭니다.")
@@ -35,7 +35,7 @@ if n_unchecked:
 sc = scenarios()
 c1, c2, c3 = st.columns([2, 2, 1])
 pick = c1.selectbox("시나리오", range(len(sc)), format_func=lambda i: sc[i]["name"])
-keys = c2.multiselect("조직 구조", list(STRUCTURES), default=["integrated", "drama"],
+keys = c2.multiselect("조직 구조", list(STRUCTURES), default=["integrated", "distributed", "drama"],
                       format_func=lambda k: STRUCTURES[k].name)
 max_turns = c3.slider("최대 행동 수", 6, 40, 26)
 spec = sc[pick]
@@ -60,14 +60,46 @@ runs = st.session_state.get("agent_runs", {})
 if not runs:
     st.stop()
 
-st.subheader("요약")
-data_label("agent", "아래 수치는 가상 장면을 판정한 횟수입니다. 실제 사건 통계가 아닙니다.")
-summary = {STRUCTURES[k].name: {m: ("예" if v is True else "아니오" if v is False else v) for m, v in r.metrics.items()}
-           for k, r in runs.items()}
-st.dataframe(pd.DataFrame(summary).astype(str), width="stretch")
-with st.container(border=True):
-    st.markdown("**📊 분석**")
-    st.markdown("\n".join(f"- {x}" for x in insights.agent_runs({STRUCTURES[k].name: r.metrics for k, r in runs.items()})))
+# ── ① 이론과의 대응 ──
+st.subheader("① 이론과의 대응")
+data_label("agent", "가상 장면을 판정한 횟수입니다. 실제 사건 통계가 아닙니다.")
+rows = digest.theory_rows(runs)
+if rows:
+    VCOL = {"부합": "green", "부분 부합": "orange", "불일치": "red", "해당 없음": "gray"}
+    for r in rows:
+        with st.container(border=True):
+            a, b = st.columns([3, 2])
+            a.markdown(f"**{r['가설']}** · {r['이론']}  \n예측: {r['예측']}")
+            b.markdown(f":{VCOL.get(r['판정'], 'gray')}[**{r['판정']}**]  \n{r['이번 실행']}")
+st.info(digest.takeaway(rows))
+
+# ── ② 구조별 핵심 장면 ──
+st.subheader("② 구조별 핵심 장면")
+st.caption("판정이 갈린 장면만 한 줄로 남기고, 그 사이 문제없이 지나간 절차는 회색 흐름으로 접었습니다.")
+BADGE = {"차단": ("#c0392b", "rgba(214,69,65,.13)"), "침해": ("#6d28d9", "rgba(139,92,246,.14)"),
+         "조건부": ("#b26a00", "rgba(230,145,20,.15)"), "흘러감": ("#c0392b", "rgba(214,69,65,.13)"),
+         "허용": ("#1f8a4c", "rgba(33,150,83,.12)")}
+st.markdown("""<style>
+.km {font-size: .92rem; margin: 6px 0; line-height: 1.45; word-break: keep-all;}
+.km .b {display: inline-block; font-size: .74rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; margin-right: 6px;}
+.km .n {opacity: .5; margin-right: 4px;} .km .w {font-size: .82rem; opacity: .7; margin-left: 2.2rem;}
+.kf {font-size: .8rem; opacity: .5; margin: 4px 0 4px 2.2rem;}
+</style>""", unsafe_allow_html=True)
+kcols = st.columns(len(runs))
+for col, (k, run) in zip(kcols, runs.items()):
+    with col:
+        st.markdown(f"**{STRUCTURES[k].name}**")
+        st.caption(digest.bottom_line(run))
+        lines = []
+        for m in digest.key_moments(run):
+            if isinstance(m, digest.Flow):
+                lines.append(f'<div class="kf">⋯ {" → ".join(m.steps)}</div>')
+                continue
+            fg, bg = BADGE[m.badge]
+            why = f'<div class="w">{m.why}</div>' if m.why else ""
+            lines.append(f'<div class="km"><span class="n">{m.no}</span><span class="b" style="color:{fg};background:{bg}">'
+                         f'{m.badge}</span><b>{m.actor}</b> {m.what}{why}</div>')
+        st.markdown("".join(lines), unsafe_allow_html=True)
 
 docs = {d.id: d for d in retriever().docs}
 st.markdown("""<style>
@@ -118,7 +150,15 @@ def show_script(k: str, run):
             st.markdown(st.session_state[f"adapted-{k}"])
 
 
-tab_drama, tab_log = st.tabs(["🎬 드라마 대본", "⚖️ 판정 로그"])
+st.divider()
+st.subheader("자세히 보기")
+st.caption("위 요약의 원본입니다. 장면 전체, 판정 이유와 근거 조문, 수치 표를 볼 수 있습니다.")
+tab_drama, tab_log, tab_num = st.tabs(["🎬 전체 대본", "⚖️ 판정 로그", "🔢 수치 표"])
+with tab_num:
+    summary = {STRUCTURES[k].name: {m: ("예" if v is True else "아니오" if v is False else v) for m, v in r.metrics.items()}
+               for k, r in runs.items()}
+    st.dataframe(pd.DataFrame(summary).astype(str), width="stretch")
+    st.markdown("\n".join(f"- {x}" for x in insights.agent_runs({STRUCTURES[k].name: r.metrics for k, r in runs.items()})))
 with tab_drama:
     data_label("agent", "대본 전체가 가상 장면입니다. 실존 인물·실제 사건 기록이 아닙니다.")
     st.caption("실행 기록을 장면(S#)으로 엮은 대본입니다. 인물이 한 행동과 막힌 행동은 기록 그대로이고, 법적 판정은 자막으로 "
