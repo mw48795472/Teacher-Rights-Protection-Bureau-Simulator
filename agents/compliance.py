@@ -89,7 +89,7 @@ class ComplianceAgent:
             f"\n\n## 심사할 행동\n주체: {actor} ({kind})\n행동 유형: {action.intent}\n내용: {action.description}\n"
             f"상대방: {action.target or '-'}\n\n## 근거 자료\n{evidence}"
         )
-        return call_structured(SYSTEM, user, Verdict, effort="medium")
+        return call_structured(SYSTEM, user, Verdict, effort="low")  # 행동마다 부르므로 속도 우선
 
 
 # ── 오프라인 규칙 모드 (키가 없을 때 예시용) ──

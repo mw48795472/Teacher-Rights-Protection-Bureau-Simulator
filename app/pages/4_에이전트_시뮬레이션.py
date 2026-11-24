@@ -9,7 +9,7 @@ fresh.ensure()
 from common import data_label, llm_badge, retriever, scenario_kind, scenarios
 from agents.llm import llm_enabled, model_name
 from agents.roles import STRUCTURES
-from agents import comic, digest, relmap
+from agents import digest, relmap
 from agents.drama import adapt, build_script, script_text
 from agents.runner import run_agents
 from sim import insights
@@ -42,19 +42,12 @@ spec = sc[pick]
 st.caption(spec.get("description", ""))
 data_label("agent", scenario_kind(spec) + " 인물의 대사·행동은 에이전트가 지어낸 가상 장면이고, 허용·차단 판정만 실제 법령·조례를 인용합니다.")
 
-COLOR = {"허용": "green", "조건부 허용": "orange", "차단": "red"}
-
 if st.button("실행", type="primary", disabled=not keys):
-    st.session_state["agent_runs"] = {}
-    for k in keys:
-        box = st.status(f"{STRUCTURES[k].name} 실행 중...", expanded=False)
-
-        def on_turn(t, box=box):
-            v = t.review.verdict
-            box.write(f"{t.n}. {t.actor} [{t.review.action.intent}] → {v.decision}")
-
-        st.session_state["agent_runs"][k] = run_agents(spec, k, retriever(), max_turns, on_turn)
-        box.update(label=f"{STRUCTURES[k].name} 완료", state="complete")
+    # 구조끼리는 서로 독립이라 동시에 돌린다 (Claude 모드에서 대기 시간이 구조 수만큼 늘지 않게)
+    from concurrent.futures import ThreadPoolExecutor
+    with st.spinner(f"{len(keys)}개 구조를 동시에 실행 중..."), ThreadPoolExecutor(len(keys)) as ex:
+        futs = {k: ex.submit(run_agents, spec, k, retriever(), max_turns) for k in keys}
+        st.session_state["agent_runs"] = {k: f.result() for k, f in futs.items()}
 
 runs = st.session_state.get("agent_runs", {})
 
@@ -94,109 +87,42 @@ if rows:
             st.markdown(f"**{digest.VERDICT_TEXT.get(r['판정'], r['판정'])}**")
             st.caption(f"{r['가설']} · {r['이론']}  \n예측: {r['예측']}")
 
-# ── 결정적 장면: 만화 컷 ──
-st.subheader("🎬 결정적 장면")
-st.caption("판정이 갈린 순간만 컷으로 골랐어요. 도장이 찍힌 컷이 법이 개입한 장면이에요.")
-st.markdown(comic.CSS, unsafe_allow_html=True)
-for tab, (k, run) in zip(st.tabs([STRUCTURES[k].name for k in runs]), runs.items()):
-    with tab:
-        st.markdown(f"**{digest.bottom_line(run)}**")
-        st.markdown(comic.html(run, spec["name"]), unsafe_allow_html=True)
-
+# ── 자세히 보기: 켰을 때만, 고른 구조 하나만 그린다 (요소 수를 줄여 화면을 가볍게) ──
+st.divider()
+if not st.toggle("📜 자세히 보기 (대본·판정 로그·수치)", value=False):
+    st.stop()
+d1, d2 = st.columns([2, 3])
+dk = d1.selectbox("구조", list(runs), format_func=lambda k: STRUCTURES[k].name)
+view = d2.radio("보기", ["판정 로그", "대본", "수치 표"], horizontal=True)
+run = runs[dk]
 docs = {d.id: d for d in retriever().docs}
-st.markdown("""<style>
-.sc {border-left: 3px solid rgba(128,128,128,.3); padding: 6px 0 6px 14px; margin: 10px 0; word-break: keep-all;}
-.sc .hd {font-weight: 700; font-size: .92rem;} .sc .hd span {opacity: .55; font-weight: 500; margin-left: 6px;}
-.sc .dir {font-style: italic; opacity: .7; font-size: .9rem; margin: .2rem 0;}
-.sc .ln {font-size: 1rem; margin: .2rem 0;} .sc .ln b {margin-right: 6px;}
-.sc .ex {font-size: .7rem; opacity: .45; margin-left: 4px;}
-.sc .cap {display: inline-block; font-size: .82rem; font-weight: 600; padding: 2px 10px; border-radius: 6px; margin-top: .25rem;}
-.cap-red {background: rgba(214,69,65,.13); color: #c0392b;} .cap-amber {background: rgba(230,145,20,.15); color: #b26a00;}
-.sc.block {border-left-color: #d64541;}
-.act {font-size: 1.1rem; font-weight: 800; margin: 22px 0 4px; color: #2a6fdb;}
-</style>""", unsafe_allow_html=True)
 
-
-def show_script(k: str, run):
-    sc = build_script(run, spec["name"])
-    st.markdown(f"### 🎬 {sc.title}")
-    st.caption(sc.logline)
-    with st.expander("등장인물", expanded=False):
-        for n, p in sc.cast:
-            st.markdown(f"**{n}** · {p}")
-    for act, scenes in sc.acts:
-        st.markdown(f'<div class="act">{act}</div>', unsafe_allow_html=True)
-        for x in scenes:
-            cls = "cap-red" if x.decision == "차단" else "cap-amber"
-            cap = f'<div class="cap {cls}">[자막] {x.caption}</div>' if x.caption else ""
-            if x.unhandled:
-                cap += f'<div class="cap cap-red">[자막] 아무도 챙기지 않은 절차: {", ".join(x.unhandled)}</div>'
-            ex = '<span class="ex">연출용 예시 대사</span>' if x.example_line else ""
-            st.markdown(
-                f'<div class="sc{" block" if x.decision == "차단" else ""}"><div class="hd">S#{x.no}. {x.place}'
-                f'<span>{x.actor}</span></div><div class="dir">({x.direction})</div>'
-                f'<div class="ln"><b>{x.actor}</b>{x.line}{ex}</div>{cap}</div>', unsafe_allow_html=True)
-    with st.container(border=True):
-        st.markdown(f"**에필로그**  \n{sc.ending}")
-    text = script_text(sc)
+if view == "판정 로그":
+    rows = []
+    for t in run.turns:
+        a, v = t.review.action, t.review.verdict
+        rows.append({"#": t.n, "인물": t.actor, "행동": a.intent, "판정": v.decision, "분류": v.category,
+                     "이유": "" if v.decision == "허용" and v.category == "적법" else v.reason,
+                     "근거": ", ".join(docs[c].title for c in v.cited_ids if c in docs)})
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+    st.download_button("로그 JSON 내려받기", json.dumps(run.to_dict(), ensure_ascii=False, indent=2),
+                       file_name=f"agent_run_{dk}.json", mime="application/json")
+elif view == "대본":
+    sc_ = build_script(run, spec["name"])
+    text = script_text(sc_)
+    data_label("agent", "대본 전체가 가상 장면입니다. 실존 인물·실제 사건 기록이 아닙니다.")
+    st.code(text, language=None, wrap_lines=True)
     b1, b2 = st.columns(2)
-    b1.download_button("대본 내려받기 (.txt)", text, file_name=f"drama_{k}.txt", key=f"dlt-{k}", width="stretch")
-    if b2.button("Claude로 각색하기", key=f"adapt-{k}", disabled=not llm_enabled(), width="stretch",
+    b1.download_button("대본 내려받기 (.txt)", text, file_name=f"drama_{dk}.txt", width="stretch")
+    if b2.button("Claude로 각색하기", disabled=not llm_enabled(), width="stretch",
                  help=None if llm_enabled() else "ANTHROPIC_API_KEY가 있어야 합니다"):
         with st.spinner("각색 중..."):
             out, ok = adapt(text)
-        st.session_state[f"adapted-{k}"] = out if ok else "각색에 실패했습니다. 잠시 뒤 다시 시도해 주세요."
-    if st.session_state.get(f"adapted-{k}"):
-        with st.container(border=True):
-            st.markdown("**Claude 각색본** (사건 흐름과 판정은 실행 기록 그대로)")
-            st.markdown(st.session_state[f"adapted-{k}"])
-
-
-st.divider()
-st.subheader("📜 더 자세히 보고 싶다면")
-st.caption("위 요약의 원본이에요. 장면 전체 대본, 판정 이유와 근거 조문, 수치 표가 있어요.")
-tab_drama, tab_log, tab_num = st.tabs(["🎬 전체 대본", "⚖️ 판정 로그", "🔢 수치 표"])
-with tab_num:
+        st.session_state[f"adapted-{dk}"] = out if ok else "각색에 실패했습니다. 잠시 뒤 다시 시도해 주세요."
+    if st.session_state.get(f"adapted-{dk}"):
+        st.markdown(st.session_state[f"adapted-{dk}"])
+else:
     summary = {STRUCTURES[k].name: {m: ("예" if v is True else "아니오" if v is False else v) for m, v in r.metrics.items()}
                for k, r in runs.items()}
     st.dataframe(pd.DataFrame(summary).astype(str), width="stretch")
     st.markdown("\n".join(f"- {x}" for x in insights.agent_runs({STRUCTURES[k].name: r.metrics for k, r in runs.items()})))
-with tab_drama:
-    data_label("agent", "대본 전체가 가상 장면입니다. 실존 인물·실제 사건 기록이 아닙니다.")
-    st.caption("실행 기록을 장면(S#)으로 엮은 대본입니다. 인물이 한 행동과 막힌 행동은 기록 그대로이고, 법적 판정은 자막으로 "
-               "나옵니다. 오프라인 예시 모드의 대사는 연출용 예시입니다.")
-    eps = st.tabs([STRUCTURES[k].name for k in runs])
-    for ep, (k, run) in zip(eps, runs.items()):
-        with ep:
-            show_script(k, run)
-
-with tab_log:
-    cols = st.columns(len(runs))
-    for col, (k, run) in zip(cols, runs.items()):
-        with col:
-            st.subheader(STRUCTURES[k].name)
-            st.caption(STRUCTURES[k].description)
-            for t in run.turns:
-                a, v = t.review.action, t.review.verdict
-                color = COLOR[v.decision]
-                with st.container(border=True):
-                    st.markdown(f"**{t.n}. {t.actor}** · `{a.intent}`  \n{a.description}")
-                    st.markdown(f":{color}[**{v.decision}**] · {v.category}")
-                    if v.decision != "허용" or v.category != "적법":
-                        st.caption(v.reason)
-                    if v.condition:
-                        st.caption(f"조건: {v.condition}")
-                    if v.alternative_intent:
-                        st.caption(f"대안: {v.alternative_actor or t.actor} → {v.alternative_intent}")
-                    if t.unhandled:
-                        st.caption(f":red[챙기는 주체 없는 후속 절차: {', '.join(t.unhandled)}]")
-                    if v.cited_ids:
-                        with st.expander("근거 조문"):
-                            for cid in v.cited_ids:
-                                d = docs.get(cid)
-                                if d:
-                                    tag = f" ({d.source_tag})" if d.source_tag else ""
-                                    link = f"  \n[원문 보기]({d.url})" if d.has_link else ""
-                                    st.markdown(f"**{d.title}**{tag}  \n{d.text}{link}")
-            st.download_button("로그 JSON 내려받기", json.dumps(run.to_dict(), ensure_ascii=False, indent=2),
-                               file_name=f"agent_run_{k}.json", mime="application/json", key=f"dl-{k}")
