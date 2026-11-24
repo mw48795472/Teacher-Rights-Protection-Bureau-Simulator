@@ -9,7 +9,7 @@ fresh.ensure()
 from common import data_label, llm_badge, retriever, scenario_kind, scenarios
 from agents.llm import llm_enabled, model_name
 from agents.roles import STRUCTURES
-from agents import digest, relmap
+from agents import comic, digest, relmap
 from agents.drama import adapt, build_script, script_text
 from agents.runner import run_agents
 from sim import insights
@@ -94,33 +94,14 @@ if rows:
             st.markdown(f"**{digest.VERDICT_TEXT.get(r['판정'], r['판정'])}**")
             st.caption(f"{r['가설']} · {r['이론']}  \n예측: {r['예측']}")
 
-# ── 결정적 장면 ──
-st.subheader("🎬 결정적 장면만 골라 보기")
-st.caption("판정이 갈린 장면만 한 줄씩 남겼어요. 별일 없이 지나간 절차는 회색 줄로 묶었어요.")
-BADGE = {"차단": ("#c0392b", "rgba(214,69,65,.13)"), "침해": ("#6d28d9", "rgba(139,92,246,.14)"),
-         "조건부": ("#b26a00", "rgba(230,145,20,.15)"), "흘러감": ("#c0392b", "rgba(214,69,65,.13)"),
-         "허용": ("#1f8a4c", "rgba(33,150,83,.12)")}
-st.markdown("""<style>
-.km {font-size: .92rem; margin: 6px 0; line-height: 1.45; word-break: keep-all;}
-.km .b {display: inline-block; font-size: .74rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; margin-right: 6px;}
-.km .n {opacity: .5; margin-right: 4px;} .km .w {font-size: .82rem; opacity: .7; margin-left: 2.2rem;}
-.kf {font-size: .8rem; opacity: .5; margin: 4px 0 4px 2.2rem;}
-</style>""", unsafe_allow_html=True)
-kcols = st.columns(len(runs))
-for col, (k, run) in zip(kcols, runs.items()):
-    with col:
-        st.markdown(f"**{STRUCTURES[k].name}**")
-        st.caption(digest.bottom_line(run))
-        lines = []
-        for m in digest.key_moments(run):
-            if isinstance(m, digest.Flow):
-                lines.append(f'<div class="kf">⋯ {" → ".join(m.steps)}</div>')
-                continue
-            fg, bg = BADGE[m.badge]
-            why = f'<div class="w">{m.why}</div>' if m.why else ""
-            lines.append(f'<div class="km"><span class="n">{m.no}</span><span class="b" style="color:{fg};background:{bg}">'
-                         f'{m.badge}</span><b>{m.actor}</b> {m.what}{why}</div>')
-        st.markdown("".join(lines), unsafe_allow_html=True)
+# ── 결정적 장면: 만화 컷 ──
+st.subheader("🎬 결정적 장면")
+st.caption("판정이 갈린 순간만 컷으로 골랐어요. 도장이 찍힌 컷이 법이 개입한 장면이에요.")
+st.markdown(comic.CSS, unsafe_allow_html=True)
+for tab, (k, run) in zip(st.tabs([STRUCTURES[k].name for k in runs]), runs.items()):
+    with tab:
+        st.markdown(f"**{digest.bottom_line(run)}**")
+        st.markdown(comic.html(run, spec["name"]), unsafe_allow_html=True)
 
 docs = {d.id: d for d in retriever().docs}
 st.markdown("""<style>

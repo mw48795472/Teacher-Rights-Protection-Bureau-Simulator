@@ -62,3 +62,14 @@ def test_relmap_student_interactions_by_structure():
     assert edges["integrated"][("상근 전담관", "학생 A")][0] == "none"
     for k in ("integrated", "distributed"):
         assert edges[k][("학교장", "학생 B")][0] == "plain"
+
+
+def test_comic_panels_use_script_lines_and_stamps(monkeypatch):
+    from agents import comic
+    run = _runs(monkeypatch, ("drama",))["drama"]
+    ps = comic.panels(run, "사안")
+    cuts = ps
+    assert cuts and len(cuts) < len(run.turns)
+    assert all(p["line"] and len(p["line"]) <= 46 for p in cuts)
+    out = comic.html(run, "사안")
+    assert "법에 막힘" in out and "THE END" in out and "장면 생략" in out
