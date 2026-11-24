@@ -51,3 +51,14 @@ def test_relmap_shows_students():
     for k in relmap.LAYOUT:
         out = relmap.svg(k)
         assert "학생 A" in out and "학생 B" in out and "다툼" in out and "내 아이" in out
+
+
+def test_relmap_student_interactions_by_structure():
+    from agents import relmap
+    edges = {k: {(e[0], e[1]): (e[2], e[3]) for e in v["edges"]} for k, v in relmap.LAYOUT.items()}
+    assert edges["drama"][("교권보호국 요원", "학생 B")][0] == "blocked"
+    assert edges["drama"][("교권보호국 요원", "반 친구들")][0] == "covert"
+    assert edges["drama"][("교권보호국 요원", "학생 A")][0] == "covert"
+    assert edges["integrated"][("상근 전담관", "학생 A")][0] == "none"
+    for k in ("integrated", "distributed"):
+        assert edges[k][("학교장", "학생 B")][0] == "plain"

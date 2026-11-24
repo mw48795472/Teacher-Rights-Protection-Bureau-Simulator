@@ -120,6 +120,8 @@ def scripted_action(role: str, s: AgentStructure, history: list[str], turn: int)
     if role == "교권보호국 요원":
         if not _done(history, role, "현장출동"):
             return A("현장출동", "학교로 즉시 출동한다.", [], "학교")
+        if not _done(history, role, "비공개조사"):
+            return A("비공개조사", "학생 A의 SNS와 하굣길을 몰래 살피고 반 친구들에게 몰래 정보를 캐묻는다.", [], "학생")
         if not _done(history, role, "물리적제지"):
             return A("물리적제지", "학부모를 교무실에서 강제로 끌어내고 학생을 위압적으로 훈계한다.", [], "학부모")
         if not _done(history, role, "사실조사"):
