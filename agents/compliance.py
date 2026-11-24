@@ -27,6 +27,7 @@ SYSTEM = """너는 교육청의 규제 컴플라이언스 심사관이다. 교�
 - 공적 주체(전담관, 교육감, 위원회 등)의 행동: 그 주체에게 권한이 있는지, 정해진 절차·연계 경로를 따랐는지 본다. 권한 밖이면 "차단"하고 권한 있는 주체와 대안 행동을 alternative_actor / alternative_intent로 제시한다.
 - 사인(학부모, 피해 교원)의 행동: 행동 자체는 막지 않는다("허용"). 다만 교육활동 침해에 해당할 소지가 있으면 category를 "교육활동 침해 해당"으로 두고 triggers에 "보호조치"와 필요 시 "위원회"를 넣는다. 정당한 민원·신고·소송 제기 권리는 존중한다.
 - 물리력이나 위압으로 학생·보호자를 통제하는 행동은 법적 근거가 없으면 차단한다.
+- 당사자 몰래 하는 감시·미행·SNS 뒷조사·정보원 활용(비공개조사)은 사실상 조사·수사다. 근거 자료에 그 주체의 조사권·수사권이 없으면 "권한 초과"로 차단하고, 대상이 학생이면 개인정보와 아동 보호 문제도 reason에 짚는다.
 - cited_ids에는 판단에 실제로 쓴 자료 id만 넣는다.
 - 한국어로, reason은 핵심만 1~2문장."""
 
@@ -110,6 +111,12 @@ def offline_verdict(actor: str, action: Action, history: list[str], r: Retriever
         return Verdict(decision="차단", category="권한 초과",
                        cited_ids=_cite(r, "전담관 조사권 수사권 심의 의결권 없음 최종 판단"),
                        reason="교육활동 침해 여부 판단과 조사는 이 주체의 권한이 아니다. 침해 여부 심의는 지역교권보호위원회가 맡는다.",
+                       **{**base, "alternative_intent": "위원회심의요청", "alternative_actor": actor, "triggers": ["위원회"]})
+    if official and action.intent == "비공개조사":
+        return Verdict(decision="차단", category="권한 초과",
+                       cited_ids=_cite(r, "전담관 조사권 수사권 심의 의결권 없음 최종 판단"),
+                       reason="당사자 몰래 하는 관찰·미행·정보 수집은 사실상 조사·수사인데, 교권보호 조직에는 조사권·수사권이 없다. "
+                              "대상이 학생이면 개인정보와 아동 보호 문제까지 생긴다 (관련 법령 원문 확인 필요).",
                        **{**base, "alternative_intent": "위원회심의요청", "alternative_actor": actor, "triggers": ["위원회"]})
     if action.intent == "물리적제지":
         return Verdict(decision="차단", category="권한 초과",
