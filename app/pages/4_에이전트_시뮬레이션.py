@@ -17,9 +17,9 @@ from sim import insights
 st.set_page_config(page_title="에이전트 시뮬레이션", page_icon="🏫", layout="wide")
 llm_badge()
 st.title("에이전트 시뮬레이션")
-st.markdown("같은 사건을 세 가지 조직에 넣고, 인물들이 **각자 성격대로** 움직이게 해 봤어요. "
+st.markdown("같은 사건을 두 조직(교권보호단과 드라마식 교권보호국)에 넣고, 인물들이 **각자 성격대로** 움직이게 해 봤어요. "
             "그때마다 컴플라이언스 에이전트가 법령·조례를 펼쳐 보고 *이게 실제로 가능한 일인지* 판정합니다.")
-st.caption("궁금한 건 두 가지예요. 드라마처럼 밀어붙이면 통할까? (H6) · 전담관이 있으면 선생님이 덜 뛰어다닐까? (H1)")
+st.caption("궁금한 건 하나예요. 드라마처럼 요원이 밀어붙이면 통할까, 아니면 전담관이 조정하는 쪽이 통할까? (H6)")
 
 if llm_enabled():
     st.success(f"Claude 에이전트 모드 ({model_name()}). 한 번 실행에 행동 수 × 2회 API 호출이 듭니다.")
@@ -35,7 +35,7 @@ if n_unchecked:
 sc = scenarios()
 c1, c2, c3 = st.columns([2, 2, 1])
 pick = c1.selectbox("시나리오", range(len(sc)), format_func=lambda i: sc[i]["name"])
-keys = c2.multiselect("조직 구조", list(STRUCTURES), default=["integrated", "distributed", "drama"],
+keys = c2.multiselect("조직 구조", ["integrated", "drama"], default=["integrated", "drama"],
                       format_func=lambda k: STRUCTURES[k].name)
 max_turns = c3.slider("최대 행동 수", 6, 40, 26)
 spec = sc[pick]
