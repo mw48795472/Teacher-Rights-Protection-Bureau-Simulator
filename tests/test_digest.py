@@ -24,10 +24,23 @@ def test_theory_rows_match_hypotheses_offline(monkeypatch):
     assert rows["H6"]["판정"] == "부합"
     assert rows["H1"]["판정"] == "부합"
     assert rows["H1 보조"]["판정"] == "부합"
-    assert "조정 장치" in digest.takeaway(list(rows.values()))
+    assert "전담관" in digest.takeaway(list(rows.values()))
 
 
 def test_theory_rows_without_distributed_skip_h1(monkeypatch):
     rows = digest.theory_rows(_runs(monkeypatch, ("integrated", "drama")))
     assert [r["가설"] for r in rows] == ["H6"]
     assert "H1" in digest.takeaway(rows)
+
+
+def test_relmap_svg_has_every_role_and_run_counts(monkeypatch):
+    from agents import relmap
+    from agents.roles import STRUCTURES
+    runs = _runs(monkeypatch)
+    for k, run in runs.items():
+        static = relmap.svg(k)
+        assert static.startswith("<svg") and static.endswith("</svg>")
+        for role in relmap.LAYOUT[k]["pos"]:
+            assert role in STRUCTURES[k].roles and relmap.NODE[role][2] in static
+        assert ">5<" in relmap.svg("distributed", runs["distributed"])  # 선생님이 5번 움직임
+    assert "✕" in relmap.svg("drama") and "7 5" not in relmap.svg("integrated")

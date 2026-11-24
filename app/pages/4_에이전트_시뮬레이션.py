@@ -9,7 +9,7 @@ fresh.ensure()
 from common import data_label, llm_badge, retriever, scenario_kind, scenarios
 from agents.llm import llm_enabled, model_name
 from agents.roles import STRUCTURES
-from agents import digest
+from agents import digest, relmap
 from agents.drama import adapt, build_script, script_text
 from agents.runner import run_agents
 from sim import insights
@@ -17,9 +17,9 @@ from sim import insights
 st.set_page_config(page_title="에이전트 시뮬레이션", page_icon="🏫", layout="wide")
 llm_badge()
 st.title("에이전트 시뮬레이션")
-st.caption("검증하는 가설: **H6** 드라마식 강제 개입은 권한 초과로 막히는가 · **H1** 주 담당 전담관이 교사의 발품을 줄이는가.")
-st.caption("인물 에이전트가 성향대로 행동하면, 컴플라이언스 에이전트가 법령·조례로 허용·조건부·차단을 판정합니다. "
-           "결과는 ① 이론과의 대응 → ② 핵심 장면 순으로 보여 주고, 전체 대본과 판정 로그는 맨 아래에 접어 둡니다.")
+st.markdown("같은 사건을 세 가지 조직에 넣고, 인물들이 **각자 성격대로** 움직이게 해 봤어요. "
+            "그때마다 컴플라이언스 에이전트가 법령·조례를 펼쳐 보고 *이게 실제로 가능한 일인지* 판정합니다.")
+st.caption("궁금한 건 두 가지예요. 드라마처럼 밀어붙이면 통할까? (H6) · 전담관이 있으면 선생님이 덜 뛰어다닐까? (H1)")
 
 if llm_enabled():
     st.success(f"Claude 에이전트 모드 ({model_name()}). 한 번 실행에 행동 수 × 2회 API 호출이 듭니다.")
@@ -57,25 +57,46 @@ if st.button("실행", type="primary", disabled=not keys):
         box.update(label=f"{STRUCTURES[k].name} 완료", state="complete")
 
 runs = st.session_state.get("agent_runs", {})
+
+# ── 인물관계도 ──
+st.subheader("🗺️ 한눈에 보는 인물관계도")
+map_keys = list(runs) or keys
+if runs:
+    st.caption("동그라미 위 숫자는 이번 실행에서 그 인물이 움직인 횟수예요. 흐린 인물은 한 번도 나서지 않았어요.")
+else:
+    st.caption("실행하면 인물마다 몇 번 움직였는지 함께 표시돼요.")
+st.markdown(relmap.legend_html(), unsafe_allow_html=True)
+if map_keys:
+    for tab, k in zip(st.tabs([STRUCTURES[k].name for k in map_keys]), map_keys):
+        with tab:
+            st.markdown(f"**{relmap.note(k)}**")
+            st.markdown(relmap.svg(k, runs.get(k)), unsafe_allow_html=True)
+            if k in runs:
+                st.caption(digest.bottom_line(runs[k]))
+
 if not runs:
     st.stop()
 
-# ── ① 이론과의 대응 ──
-st.subheader("① 이론과의 대응")
-data_label("agent", "가상 장면을 판정한 횟수입니다. 실제 사건 통계가 아닙니다.")
+# ── 이론과의 대응 ──
+st.subheader("🔍 이론이 예측한 대로 됐을까?")
+data_label("agent", "가상 장면을 판정한 횟수예요. 실제 사건 통계가 아닙니다.")
 rows = digest.theory_rows(runs)
+if rows and all(r["판정"] == "부합" for r in rows):
+    st.success(digest.takeaway(rows), icon="💡")
+else:
+    st.info(digest.takeaway(rows), icon="💡")
 if rows:
-    VCOL = {"부합": "green", "부분 부합": "orange", "불일치": "red", "해당 없음": "gray"}
-    for r in rows:
-        with st.container(border=True):
-            a, b = st.columns([3, 2])
-            a.markdown(f"**{r['가설']}** · {r['이론']}  \n예측: {r['예측']}")
-            b.markdown(f":{VCOL.get(r['판정'], 'gray')}[**{r['판정']}**]  \n{r['이번 실행']}")
-st.info(digest.takeaway(rows))
+    rcols = st.columns(len(rows))
+    for col, r in zip(rcols, rows):
+        with col, st.container(border=True):
+            st.markdown(f"**{r['q']}**")
+            st.markdown(f"{r['say']}")
+            st.markdown(f"**{digest.VERDICT_TEXT.get(r['판정'], r['판정'])}**")
+            st.caption(f"{r['가설']} · {r['이론']}  \n예측: {r['예측']}")
 
-# ── ② 구조별 핵심 장면 ──
-st.subheader("② 구조별 핵심 장면")
-st.caption("판정이 갈린 장면만 한 줄로 남기고, 그 사이 문제없이 지나간 절차는 회색 흐름으로 접었습니다.")
+# ── 결정적 장면 ──
+st.subheader("🎬 결정적 장면만 골라 보기")
+st.caption("판정이 갈린 장면만 한 줄씩 남겼어요. 별일 없이 지나간 절차는 회색 줄로 묶었어요.")
 BADGE = {"차단": ("#c0392b", "rgba(214,69,65,.13)"), "침해": ("#6d28d9", "rgba(139,92,246,.14)"),
          "조건부": ("#b26a00", "rgba(230,145,20,.15)"), "흘러감": ("#c0392b", "rgba(214,69,65,.13)"),
          "허용": ("#1f8a4c", "rgba(33,150,83,.12)")}
@@ -151,8 +172,8 @@ def show_script(k: str, run):
 
 
 st.divider()
-st.subheader("자세히 보기")
-st.caption("위 요약의 원본입니다. 장면 전체, 판정 이유와 근거 조문, 수치 표를 볼 수 있습니다.")
+st.subheader("📜 더 자세히 보고 싶다면")
+st.caption("위 요약의 원본이에요. 장면 전체 대본, 판정 이유와 근거 조문, 수치 표가 있어요.")
 tab_drama, tab_log, tab_num = st.tabs(["🎬 전체 대본", "⚖️ 판정 로그", "🔢 수치 표"])
 with tab_num:
     summary = {STRUCTURES[k].name: {m: ("예" if v is True else "아니오" if v is False else v) for m, v in r.metrics.items()}
