@@ -83,8 +83,12 @@ def case_text(spec: dict) -> str:
     return f"{spec['name']}: {spec.get('description', '')} (유형 {spec['type']}, 심각도 {spec['severity']})"
 
 
+MAX_TURNS = 25  # 한 구조에서 행동은 최대 25회
+
+
 def run_agents(spec: dict, structure_key: str, retriever: Retriever, max_turns: int = 16,
                on_turn=None) -> AgentRun:
+    max_turns = max(1, min(max_turns, MAX_TURNS))
     s = STRUCTURES[structure_key]
     text = case_text(spec)
     compliance = ComplianceAgent(retriever)
