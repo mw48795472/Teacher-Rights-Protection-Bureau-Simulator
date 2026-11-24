@@ -21,11 +21,11 @@ INTENTS: tuple[str, ...] = Intent.__args__  # type: ignore[attr-defined]
 class Action(BaseModel):
     """행위자 에이전트가 제안하는 다음 행동 하나."""
     intent: Intent = Field(description="행동 유형")
-    description: str = Field(description="구체적으로 무엇을 하는지 한두 문장")
+    description: str = Field(description="무엇을 하는지 한 문장 (40자 안팎)")
     target: str = Field(description="행동의 상대방 (사람이나 기관), 없으면 빈 문자열")
     notify: list[str] = Field(description="이 행동 뒤에 움직여야 할 역할 이름들 (주어진 목록에서만)")
     rationale: str = Field(description="이 행동을 고른 이유 한 문장")
-    line: str = Field(default="", description="이 행동을 하며 이 인물이 하는 대사 한 마디 (드라마 대본용, 인물의 말투로, 따옴표 없이)")
+    line: str = Field(default="", description="이 행동을 하며 이 인물이 하는 짧은 대사 한 마디 (드라마 대본용, 인물의 말투로, 25자 안팎, 따옴표 없이)")
 
 
 Decision = Literal["허용", "조건부 허용", "차단"]
@@ -38,7 +38,7 @@ class Verdict(BaseModel):
     decision: Decision
     category: Category
     cited_ids: list[str] = Field(description="근거로 쓴 자료 id (주어진 자료 목록에서만)")
-    reason: str = Field(description="판정 이유. 근거 조문 내용을 짚어 2~3문장")
+    reason: str = Field(description="판정 이유. 근거 조문을 짚어 1~2문장으로 짧게")
     condition: str = Field(description="조건부 허용일 때 지켜야 할 조건, 아니면 빈 문자열")
     alternative_intent: str = Field(description="차단할 때 대신 해야 할 행동 유형, 없으면 빈 문자열")
     alternative_actor: str = Field(description="대안 행동을 할 역할 이름, 없으면 빈 문자열")
