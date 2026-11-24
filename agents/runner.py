@@ -58,7 +58,7 @@ class AgentRun:
 
     @property
     def mode(self) -> str:
-        modes = {t.review.mode for t in self.turns} | {t.actor_mode for t in self.turns}
+        modes = ({t.review.mode for t in self.turns} | {t.actor_mode for t in self.turns}) - {"rule"}
         return "llm" if modes == {"llm"} else ("offline" if modes == {"offline"} else "mixed")
 
     def to_dict(self) -> dict:
@@ -104,11 +104,16 @@ def run_agents(spec: dict, structure_key: str, retriever: Retriever, max_turns: 
             queue.remove(role)
         queue.appendleft(role) if front else queue.append(role)
 
-    for n in range(1, max_turns + 1):
+    n, steps = 0, 0
+    while n < max_turns and steps < max_turns * 2:
+        steps += 1
         if not queue:
             queue.append(s.lead)
         actor = queue.popleft()
-        action, amode = agents[actor].decide(text, history, hints.pop(actor, []), n)
+        action, amode = agents[actor].decide(text, history, hints.pop(actor, []), n + 1)
+        if action.intent == "기타" and actor != s.lead:
+            continue   # '지켜본다'·'기다린다' 같은 대기는 장면으로 치지 않고 심사도 하지 않는다 (실행 시간 단축)
+        n += 1
         review = compliance.review(actor, action, text, history)
         v = review.verdict
         unhandled: list[str] = []

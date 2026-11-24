@@ -65,6 +65,15 @@ class ComplianceAgent:
 
     def review(self, actor: str, action: Action, case_text: str, history: list[str]) -> Review:
         hits = self.evidence(actor, action)
+        # 규칙으로 바로 판정되는 행동(권한 초과, 침해 해당, 근거 조문이 있는 공적 주체의 통상 업무)은
+        # Claude를 부르지 않는다. 애매한 행동만 Claude가 판정한다 (실행 시간 단축).
+        from .llm import llm_enabled
+        if llm_enabled():
+            fast = offline_verdict(actor, action, history, self.r)
+            if decisive(actor, fast):
+                valid = {d.id for d in self.r.docs}
+                fast.cited_ids = [c for c in fast.cited_ids if c in valid]
+                return Review(action, actor, fast, [h for h in hits if h.doc.id in fast.cited_ids] or hits[:2], "rule")
         try:
             v = self._llm(actor, action, case_text, history, hits)
             mode, note = "llm", ""
@@ -89,7 +98,16 @@ class ComplianceAgent:
             f"\n\n## 심사할 행동\n주체: {actor} ({kind})\n행동 유형: {action.intent}\n내용: {action.description}\n"
             f"상대방: {action.target or '-'}\n\n## 근거 자료\n{evidence}"
         )
-        return call_structured(SYSTEM, user, Verdict, effort="low")  # 행동마다 부르므로 속도 우선
+        return call_structured(SYSTEM, user, Verdict, effort="low", max_tokens=3000)  # 행동마다 부르므로 속도 우선
+
+
+def decisive(actor: str, v: Verdict) -> bool:
+    """규칙 판정을 그대로 믿어도 되는가 (Claude 호출 생략)."""
+    role = ROLES.get(actor)
+    official = role is None or role.is_official
+    if v.category in ("권한 초과", "교육활동 침해 해당"):
+        return True
+    return official and v.decision == "허용" and v.category == "적법" and bool(v.cited_ids)
 
 
 # ── 오프라인 규칙 모드 (키가 없을 때 예시용) ──

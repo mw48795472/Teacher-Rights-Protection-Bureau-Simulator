@@ -37,16 +37,22 @@ c1, c2, c3 = st.columns([2, 2, 1])
 pick = c1.selectbox("시나리오", range(len(sc)), format_func=lambda i: sc[i]["name"])
 keys = c2.multiselect("조직 구조", ["integrated", "drama"], default=["integrated", "drama"],
                       format_func=lambda k: STRUCTURES[k].name)
-max_turns = c3.slider("최대 행동 수", 6, 40, 26)
+max_turns = c3.slider("최대 행동 수", 6, 40, 22)
 spec = sc[pick]
 st.caption(spec.get("description", ""))
 data_label("agent", scenario_kind(spec) + " 인물의 대사·행동은 에이전트가 지어낸 가상 장면이고, 허용·차단 판정만 실제 법령·조례를 인용합니다.")
+
+@st.cache_resource(max_entries=32, show_spinner=False)
+def cached_run(spec_: dict, k: str, turns: int, llm: bool):
+    """같은 시나리오·구조·행동 수로 다시 실행하면 저장된 결과를 바로 쓴다."""
+    return run_agents(spec_, k, retriever(), turns)
+
 
 if st.button("실행", type="primary", disabled=not keys):
     # 구조끼리는 서로 독립이라 동시에 돌린다 (Claude 모드에서 대기 시간이 구조 수만큼 늘지 않게)
     from concurrent.futures import ThreadPoolExecutor
     with st.spinner(f"{len(keys)}개 구조를 동시에 실행 중..."), ThreadPoolExecutor(len(keys)) as ex:
-        futs = {k: ex.submit(run_agents, spec, k, retriever(), max_turns) for k in keys}
+        futs = {k: ex.submit(cached_run, spec, k, max_turns, llm_enabled()) for k in keys}
         st.session_state["agent_runs"] = {k: f.result() for k, f in futs.items()}
 
 runs = st.session_state.get("agent_runs", {})
