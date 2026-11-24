@@ -38,7 +38,7 @@ class ActorAgent:
             ("\n\n## 너에게 온 요청·심사 결과\n" + "\n".join(hints) if hints else "") +
             f"\n\n## 등장 역할\n{', '.join(others)}\n\n## 고를 수 있는 행동 유형\n{', '.join(INTENTS)}"
         )
-        a = call_structured(system, user, Action, effort="low", max_tokens=4000)
+        a = call_structured(system, user, Action, effort="low", max_tokens=2000)
         a.notify = [n for n in a.notify if n in self.structure.roles and n != self.role]
         return a
 
