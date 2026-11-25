@@ -39,6 +39,16 @@ sources:
     title: 경기도교육청_행정구역별_학제별_학급_학생_교원 (2025.4.1.)
     url: https://www.data.go.kr/data/15077331/fileData.do
     file: data/measured/gyeonggi_offices.csv   # 원자료(8MB xlsx)에서 교육지원청별로 집계한 파일
+  incheon_schools:
+    title: 전국초중등학교위치표준데이터 인천 550곳 (한국교육시설안전원, 2026.10.1.)
+    url: https://www.data.go.kr/data/15021148/standard.do
+    file: data/schools/incheon_schools.csv
+  incheon_staff:
+    title: 인천광역시교육청 교육활동보호담당관 구성현황 (2026.6.30. 갱신)
+    url: https://hbm.ice.go.kr/ice/cm/cntnts/cntntsView.do?mi=11821&cntntsId=857
+  incheon_corps:
+    title: 인천 교육활동보호 지원단 2기 위촉 (내외일보 2025-12-04)
+    url: https://www.naewoeilbo.com/news/articleView.html?idxno=2259385
 
 # 전국 교권보호위원회 심의 건수 (학년도). 2019는 [center] 표, 2020~2023은 [kbw] 표.
 committee_cases:

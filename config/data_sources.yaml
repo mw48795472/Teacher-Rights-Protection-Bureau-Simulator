@@ -148,6 +148,30 @@ sources:
     key: "-"
     used_in: 시뮬레이션 지도, 학교 → 관할 교육지원청 (교원 수 표가 없을 때 사안 비중)
   - group: 위치·기관
+    provider: 한국교육시설안전원
+    name: 전국초중등학교위치표준데이터 (인천 550곳)
+    url: https://www.data.go.kr/data/15021148/standard.do
+    date: "2026-10-01"
+    format: CSV → data/schools/incheon_schools.csv (학교ID·학교명·학교급·교육지원청·위경도만)
+    key: "-"
+    used_in: 인천형(C) 지도, 인천 5개 교육지원청별 사안 비중(학교 수 비례)
+  - group: 위치·기관
+    provider: 인천광역시교육청
+    name: 교육활동보호담당관 구성현황
+    url: https://hbm.ice.go.kr/ice/cm/cntnts/cntntsView.do?mi=11821&cntntsId=857
+    date: "2026-06-30"
+    format: 누리집 표 → sim/structures/C_incheon.yaml, geo/incheon.py
+    key: "-"
+    used_in: 인천형(C) 상주 인원 (대응 장학사·센터·상주 변호사·교육지원청 담당)
+  - group: 위치·기관
+    provider: 내외일보 (인천광역시교육청 보도)
+    name: 교육활동보호 지원단 2기 위촉 (법률 33·의료 5·교육전문가 5)
+    url: https://www.naewoeilbo.com/news/articleView.html?idxno=2259385
+    date: "2025-12-04"
+    format: 기사 본문 → sim/structures/C_incheon.yaml
+    key: "-"
+    used_in: 인천형(C) 비상근 인력 풀
+  - group: 위치·기관
     provider: 교육부 (NEIS)
     name: 학교기본정보
     url: https://open.neis.go.kr

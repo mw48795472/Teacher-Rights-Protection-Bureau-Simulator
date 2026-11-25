@@ -7,8 +7,9 @@ import plotly.graph_objects as go
 import fresh  # noqa: E402  새 배포 뒤 낡은 모듈을 먼저 다시 읽는다 (common·sim 을 불러오기 전에)
 
 fresh.ensure()
-from common import chart_style, data_label, freeze, llm_badge, mark_virtual, retriever, schools_enriched, simulate, structures
-from geo.gyeonggi import OFFICES, hierarchy
+from common import (chart_style, data_label, effective_rate, freeze, llm_badge, mark_virtual, region, retriever,
+                    schools_enriched, simulate, structures)
+from geo.regions import module as region_module
 from sim import empirical as EMP
 from sim import insights
 from sim import typeffects as TE
@@ -21,8 +22,8 @@ st.title("시뮬레이션")
 st.caption("검증하는 가설: H1 통합 장치(Lawrence & Lorsch·Gulick) · H2 사안 유형(Thompson·Perrow) · "
            "H3 환경 압력(Burns & Stalker) · H4 제도화(조례) · H5 인력 안정성(Van de Ven·Woodward). Home의 '가설과 검증' 참고.")
 st.warning("**🧪 이 페이지의 사안·지표·차트는 모두 가상 데이터입니다.** 시뮬레이션이 만든 합성 사안이며 실제 교권보호단 "
-           "운영 통계가 아닙니다. 실측에 맞춘 것은 하루 사안 수(약 3건), 사안 유형 비율, 교육지원청별 비중, 학교 위치뿐이고 "
-           "처리시간·확률·인원은 팀 가정값입니다. 구조 간 차이의 방향을 보는 사고실험으로 읽어 주세요.")
+           "운영 통계가 아닙니다. 실측에 맞춘 것은 하루 사안 수(약 3건), 사안 유형 비율, 교육지원청별 비중, 학교 위치, "
+           "인천형의 조직 인원뿐이고 처리시간·확률 대부분은 팀 가정값입니다. 구조 간 차이의 방향을 보는 사고실험으로 읽어 주세요.")
 
 
 VIEWS = {"compare": "📊 구조 비교 (수백 건)", "trace": "🧭 사안 추적 (1건)"}
@@ -94,6 +95,12 @@ with st.spinner("시뮬레이션 실행 중..."):
 df = pd.concat(frames, ignore_index=True)
 short = {k: s.get("short", s["name"]) for k, s in S.items()}
 df["구조"] = df["structure"].map(short)
+REG = {k: region(k) for k in picked}
+if any(r != "경기" for r in REG.values()):
+    st.caption("📍 " + " · ".join(
+        f"**{short[k]}**는 {r} 학교 {len(schools_enriched(r)):,}곳·교육지원청 {len(region_module(r).OFFICES)}곳, "
+        f"하루 {effective_rate(k, rate):.2f}건(경기 기준 {rate}건 × 2024 교보위 건수 비율)으로 돌립니다"
+        for k, r in REG.items() if r != "경기") + ". 사안당 평균으로 비교하세요.")
 CS = chart_style()
 summary = summarize(df, "structure")
 
@@ -120,19 +127,25 @@ with c2:
     st.plotly_chart(mark_virtual(fig), width="stretch")
 
 st.subheader("관할 교육지원청별 결과")
-st.caption("경기도 초·중·고 2,576곳의 학교 수 비중대로 사안이 생기고, 그 학교 관할 교육지원청의 "
-           "지역교권보호위원회로 넘어갑니다. 원 크기는 사안 수, 색은 위원회 심의까지 평균 대기입니다.")
-sch = schools_enriched()
-odf = pd.DataFrame([{"office": o.key, "name": o.name, "lat": o.lat, "lon": o.lon} for o in OFFICES])
-wc = df[df["committee_wait_days"] > 0]
-per = (df.groupby(["구조", "office"]).agg(사안=("id", "size"), 종결일=("closure_days", "mean"))
-       .join(wc.groupby(["구조", "office"]).agg(위원회_대기일=("committee_wait_days", "mean")))
-       .reset_index().fillna(0).merge(odf, on="office"))
 m1, m2 = st.columns([3, 2])
 with m1:
     which = st.radio("구조", picked, horizontal=True, format_func=short.get, key="map_structure")
+R = REG[which]
+geo = region_module(R)
+same = [k for k in picked if REG[k] == R]   # 같은 지역(같은 교육지원청)을 쓰는 구조끼리만 표로 묶는다
+m1.caption(f"{R} 초·중·고 {len(schools_enriched(R)):,}곳의 " + ("교원 수" if R == "경기" else "학교 수") +
+           " 비중대로 사안이 생기고, 그 학교 관할 교육지원청의 지역교권보호위원회로 넘어갑니다. "
+           "원 크기는 사안 수, 색은 위원회 심의까지 평균 대기입니다.")
+sch = schools_enriched(R)
+odf = pd.DataFrame([{"office": o.key, "name": o.name, "lat": o.lat, "lon": o.lon} for o in geo.OFFICES])
+d_r = df[df["structure"].isin(same)]
+wc = d_r[d_r["committee_wait_days"] > 0]
+per = (d_r.groupby(["구조", "office"]).agg(사안=("id", "size"), 종결일=("closure_days", "mean"))
+       .join(wc.groupby(["구조", "office"]).agg(위원회_대기일=("committee_wait_days", "mean")))
+       .reset_index().fillna(0).merge(odf, on="office"))
+with m1:
     mp = per[per["구조"] == short[which]]
-    MAP = dict(map_style="carto-positron", zoom=7.9, center={"lat": 37.55, "lon": 127.1})
+    MAP = geo.MAP_VIEW
     fig = go.Figure()
     if not sch.empty and st.toggle("학교 표시", True):
         hover = sch["name"] + " (" + sch["level"] + ")"
@@ -150,22 +163,25 @@ with m1:
         hovertext=[f"{r.name}<br>사안 {r.사안}건 · 위원회 대기 {r.위원회_대기일:.1f}일 · 종결 {r.종결일:.1f}일"
                    for r in mp.itertuples()], hoverinfo="text"))
     fig.update_layout(height=560, margin=dict(l=0, r=0, t=0, b=0), showlegend=False,
-                      map=dict(style=MAP["map_style"], zoom=MAP["zoom"], center=MAP["center"]))
+                      map=dict(style="carto-positron", zoom=MAP["zoom"], center=MAP["center"]))
     data_label("sim", "원 크기(사안 수)와 색(위원회 대기)은 가상 데이터입니다. 학교 위치는 :green-badge[📏 실측] "
-               "전국초중등학교위치표준데이터, 교육지원청 위치는 대략 위치입니다.")
+               "전국초중등학교위치표준데이터, 교육지원청 위치는 " +
+               ("대략 위치입니다." if R == "경기" else "관할 학교 좌표의 중앙값입니다."))
     st.plotly_chart(fig, width="stretch")
 with m2:
     tbl = per.pivot_table(index="office", columns="구조", values="위원회_대기일").round(1)
-    st.markdown("**교육지원청별 위원회 대기 (근무일)** :orange-badge[🧪 가상]")
+    st.markdown(f"**{R} 교육지원청별 위원회 대기 (근무일)** :orange-badge[🧪 가상]")
     st.dataframe(tbl.sort_values(tbl.columns[0], ascending=False), width="stretch", height=520)
 analysis(insights.offices(per, short[which]), f"관할 분석 ({short[which]})")
-with st.expander("감독 구조: 교육부 → 경기도교육청 → 교육지원청 → 위원회·학교"):
-    h = hierarchy(sch)
-    data_label("real", "학교 수는 실측(학교 위치 데이터)이고, 감독 관계는 법령·조직도를 바탕으로 정리했습니다.")
+with st.expander(f"감독 구조: 교육부 → {R} 교육청 → 교육지원청 → 위원회·학교"):
+    h = geo.hierarchy(sch)
+    data_label("real", "학교 수는 실측(학교 위치 데이터)이고, 감독 관계는 법령·조직도를 바탕으로 정리했습니다."
+               + ("" if R == "경기" else " 인천 조직 인원은 인천광역시교육청 '교육활동보호담당관 구성현황'(2026.6.30.) 원문입니다."))
     st.plotly_chart(px.sunburst(h, ids="id", parents="parent", names="label", values="value",
                                 hover_data={"role": True}, height=560, maxdepth=3), width="stretch")
     st.caption("교육지원청 위치는 시청 부근 대략 위치입니다. 지역교권보호위원회를 교육지원청에 두는 부분은 "
-               "교원지위법 원문 확인이 필요합니다.")
+               "교원지위법 원문 확인이 필요합니다." if R == "경기" else
+               "교육지원청 위치는 관할 학교 좌표의 중앙값입니다. 관할 구는 2026.7. 인천 행정체제 개편 후 이름입니다.")
 
 st.subheader("이론별 분석: 사안 특성에 따라 구조 효과가 달라지는가")
 data_label("sim", "아래 점·막대·회귀는 모두 시뮬레이션의 합성 사안입니다. 지원 개수·분석가능성 효과의 크기는 팀 가정값에서 나옵니다.")
@@ -182,7 +198,12 @@ unit = "일" if metric.endswith("_days") else "h" if metric.endswith("_h") else 
 pair_ok = len(picked) >= 2
 if pair_ok:
     base_k = t3.selectbox("짝 비교: 기준 구조", picked, index=0, format_func=short.get, key="th_base")
-    rest = [k for k in picked if k != base_k]
+    # 짝 비교는 같은 사안을 넣은 구조끼리만 된다. 지역이 다르면(인천형) 사안 흐름이 달라 짝을 지을 수 없다.
+    rest = [k for k in picked if k != base_k and REG[k] == REG[base_k]]
+    pair_ok = bool(rest)
+if not pair_ok and len(picked) >= 2:
+    t3.caption("짝 비교는 같은 지역 구조끼리만 됩니다. 인천형은 인천 학교·사안 규모로 돌려 사안이 달라서 짝을 지을 수 없습니다.")
+if pair_ok:
     target_k = t3.selectbox("짝 비교: 비교 구조", rest, index=rest.index("B_gyeonggi") if "B_gyeonggi" in rest else 0,
                             format_func=short.get, key="th_target")
     pr = TE.paired(df, metric, base_k, target_k)
@@ -320,7 +341,8 @@ if source == "measured":
     st.subheader("실측 재현 점검: 시뮬레이션이 실측 합계를 재현하는가")
     st.caption("입력 확인 = 실측 분포에서 뽑은 값이 표본에서도 맞는지. 보정 기준 = 기본값을 맞춘 기준이라 맞아야 정상. "
                "독립 비교 = 뽑거나 맞추지 않은 실측 값과의 비교로, 어긋나면 그만큼 모형의 가정이 현실과 다르다는 뜻입니다.")
-    rep = EMP.reproduction(df[df["structure"] == picked[0]], rate)
+    k0 = next((k for k in picked if REG[k] == "경기"), picked[0])   # 실측 합계는 경기 기준
+    rep = EMP.reproduction(df[df["structure"] == k0], effective_rate(k0, rate))
     if not rep.empty:
         st.dataframe(rep.round(1), hide_index=True, width="stretch")
         with st.expander("실측 모드에서 아직 가정인 것: 유형별 필요한 지원·심각도 대응표"):
