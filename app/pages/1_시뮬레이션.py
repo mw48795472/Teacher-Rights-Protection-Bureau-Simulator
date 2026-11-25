@@ -105,19 +105,12 @@ analysis(insights.overview(summary, short), "핵심 결과")
 with st.expander("지표와 이론의 연결"):
     st.table(pd.DataFrame([{"지표": v[0], "보는 것": v[1]} for v in METRICS.values()]))
 
-c1, c2 = st.columns(2)
-with c1:
-    fig = px.box(df, x="구조", y="closure_days", color="구조", points=False, title="종결까지 걸린 기간 (근무일)",
-                 labels={"closure_days": "근무일"}, **CS)
-    fig.update_layout(showlegend=False)
-    st.plotly_chart(mark_virtual(fig), width="stretch")
-with c2:
-    m = summary[["contacts", "repeats", "coordination"]].rename(index=short).reset_index(names="구조")
-    m = m.melt(id_vars="구조", var_name="지표", value_name="사안당 평균")
-    m["지표"] = m["지표"].map(lambda k: METRICS[k][0])
-    fig = px.bar(m, x="지표", y="사안당 평균", color="구조", barmode="group",
-                 title="조정 부담은 누가 지는가: 교사(접촉·진술) vs 조직(조정 메시지)", **CS)
-    st.plotly_chart(mark_virtual(fig), width="stretch")
+m = summary[["contacts", "repeats", "coordination"]].rename(index=short).reset_index(names="구조")
+m = m.melt(id_vars="구조", var_name="지표", value_name="사안당 평균")
+m["지표"] = m["지표"].map(lambda k: METRICS[k][0])
+fig = px.bar(m, x="지표", y="사안당 평균", color="구조", barmode="group",
+             title="조정 부담은 누가 지는가: 교사(접촉·진술) vs 조직(조정 메시지)", **CS)
+st.plotly_chart(mark_virtual(fig), width="stretch")
 
 st.subheader("관할 교육지원청별 결과")
 st.caption("경기도 초·중·고 2,576곳의 학교 수 비중대로 사안이 생기고, 그 학교 관할 교육지원청의 "
