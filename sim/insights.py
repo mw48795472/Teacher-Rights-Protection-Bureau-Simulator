@@ -59,6 +59,8 @@ def overview(summary: pd.DataFrame, short: dict) -> list[str]:
                 f"종결 {c.closure_days:.1f}일 vs {b1.closure_days:.1f}일.")
         if c.handoffs < b1.handoffs:
             line += " 상주 인력 비중이 높을수록 일정 공백으로 인한 인수인계가 줄어듭니다."
+        line += (" 인천형은 인천 학교 550곳·교육지원청 5곳과 인천 사안 규모(경기의 약 0.26배)로 돌린 결과라 "
+                 "같은 사안끼리 짝지은 비교가 아니라 사안당 평균의 비교입니다.")
         out.append(line)
     return out
 

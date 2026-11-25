@@ -16,7 +16,8 @@ from dotenv import load_dotenv  # noqa: E402
 load_dotenv(ROOT / ".env")
 
 from collector.pipeline import load_corpus  # noqa: E402
-from geo.gyeonggi import load_schools, office_weights  # noqa: E402
+from geo.gyeonggi import load_schools  # noqa: E402
+from geo.regions import module as region_module, region_of  # noqa: E402
 from geo.neis import NeisError, fetch_schools, neis_key, reconcile  # noqa: E402
 from rag.retriever import Retriever  # noqa: E402
 from sim.engine import SimConfig, list_structures, run  # noqa: E402
@@ -39,9 +40,9 @@ def scenarios() -> list[dict]:
 
 
 @st.cache_data(show_spinner=False)
-def schools() -> pd.DataFrame:
-    """경기도 초·중·고 위치 (data/schools). 없으면 빈 표."""
-    return load_schools()
+def schools(region: str = "경기") -> pd.DataFrame:
+    """지역 초·중·고 위치 (data/schools). 경기 2,576곳, 인천 550곳. 없으면 빈 표."""
+    return load_schools() if region == "경기" else region_module(region).load_schools()
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -58,24 +59,41 @@ def neis_status() -> dict:
     return {"ok": True, "merged": merged, **rec}
 
 
-def schools_enriched() -> pd.DataFrame:
+def schools_enriched(region: str = "경기") -> pd.DataFrame:
+    """NEIS 대조는 경기만 한다 (인천은 위치 표준데이터만)."""
+    if region != "경기":
+        return schools(region)
     st_ = neis_status()
     return st_["merged"] if st_["ok"] else schools()
 
 
-def offices() -> tuple:
-    """교육지원청별 사안 비중. 실측 교원 수(2025.4.)가 있으면 교원 수, 없으면 학교 수에 비례."""
+def offices(region: str = "경기") -> tuple:
+    """교육지원청별 사안 비중. 경기는 실측 교원 수(2025.4.)가 있으면 교원 수, 없으면 학교 수. 인천은 학교 수 비례."""
     from sim.calibration import office_teacher_weights
-    return tuple(sorted((office_teacher_weights() or office_weights(schools())).items()))
+    if region == "경기":
+        return tuple(sorted((office_teacher_weights() or region_module("경기").office_weights(schools())).items()))
+    return tuple(sorted(region_module(region).office_weights(schools(region)).items()))
+
+
+def region(key: str) -> str:
+    return region_of(structures()[key])
+
+
+def effective_rate(key: str, rate: float) -> float:
+    """화면의 '하루 평균 사안 수'(경기 기준)를 구조의 지역 규모로 바꾼 값. 인천은 2024 교보위 건수 비율(약 0.26배)."""
+    from sim.calibration import region_case_scale
+    return rate * region_case_scale(region(key))
 
 
 def simulate(key: str, days: int, rate: float, seed: int, surge_day, surge_mult: float,
              overrides: tuple = (), scenario: tuple = (), capacity: int = 6,
              case_source: str = "assumed") -> tuple[pd.DataFrame, dict]:
     """(사안별 결과표, 시나리오 사안의 로그 {label: trace}).
-    사안은 교육지원청별 교원 수(없으면 학교 수) 비중대로 각 관할에서 생기고, 그 교육지원청 위원회로 간다."""
-    return _simulate(key, days, rate, seed, surge_day, surge_mult, overrides, scenario, offices(), capacity,
-                     case_source)
+    사안은 구조가 속한 지역(경기·인천)의 교육지원청 비중대로 각 관할에서 생기고, 그 교육지원청 위원회로 간다.
+    인천형은 사안 유입량도 인천 규모(effective_rate)로 줄여 돌린다."""
+    r = region(key)
+    return _simulate(key, days, effective_rate(key, rate), seed, surge_day, surge_mult, overrides, scenario,
+                     offices(r), capacity, case_source)
 
 
 @st.cache_data(show_spinner=False)

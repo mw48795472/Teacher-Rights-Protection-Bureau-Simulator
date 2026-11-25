@@ -32,6 +32,9 @@ STRUCTURES_DIR = ROOT / "structures"
 WORK_MEDIAN = {"상담": 4.0, "법률": 10.0, "행정": 3.0, "수사연계": 2.0, "갈등조정": 6.0}
 POLICE_DELAY_MEDIAN = 24.0      # 수사기관 접수·처리 대기 (가정, 3근무일)
 NONREGULAR_MIX = {"법률": 0.25, "상담": 0.3, "수사연계": 0.15, "갈등조정": 0.15, "행정": 0.15}
+# 통합 구조의 조직 이름 (구조 YAML labels 로 바꿀 수 있다)
+DEFAULT_LABELS = {"intake": "교권보호 119 접수", "lead": "상근 전담관", "nonregular": "비상근 전담관",
+                  "resident": "상주 전문가", "center": "지역교권보호지원센터", "head": "교육감(단장)"}
 
 # 각 행동의 근거를 찾을 검색어. 실제 조문이 수집되면 그 원문이 인용된다.
 CITE_QUERIES = {
@@ -143,8 +146,24 @@ class Simulation:
             self.leads = simpy.PriorityResource(
                 self.env, max(1, self.p["regular_officers"] * self.p["caseload_per_regular"]))
             self.center = simpy.Resource(self.env, self.p["center_staff"])
-            self.pools = {s: simpy.Resource(self.env, max(1, round(self.p["nonregular_officers"] * f)))
-                          for s, f in NONREGULAR_MIX.items()}
+            self.pools = self._pools(self.p.get("nonregular_pool"),
+                                     {s: max(1, round(self.p["nonregular_officers"] * f)) for s, f in NONREGULAR_MIX.items()})
+            # 상주 전문가 (예: 인천 법률지원팀 변호사 2명). 비어 있으면 일정 조율 없이 바로 붙고, 다 차면 비상근 풀로 간다.
+            self.resident = self._pools(self.p.get("resident_specialists"), {})
+        # 화면·로그에 쓰는 조직 이름 (인천형은 자기 조직 이름을 쓴다)
+        self.L = {**DEFAULT_LABELS, **(cfg.structure.get("labels") or {})}
+
+    def _pools(self, spec: dict | None, default: dict) -> dict:
+        """{업무: 인원 또는 다른 업무 이름}. 이름이면 그 업무의 풀을 같이 쓴다 (예: 수사연계 → 법률지원단)."""
+        if not spec:
+            return {s: simpy.Resource(self.env, n) for s, n in default.items()}
+        out = {s: simpy.Resource(self.env, max(1, int(n))) for s, n in spec.items() if not isinstance(n, str)}
+        for s, n in spec.items():
+            if isinstance(n, str):
+                out[s] = out[n]
+        for s in NONREGULAR_MIX:   # 지정하지 않은 업무는 가장 큰 풀을 같이 쓴다
+            out.setdefault(s, max(out.values(), key=lambda r: r.capacity))
+        return out
 
     # ── 공통 ──
     def work(self, service: str, factor: float = 1.0, case: Case | None = None) -> float:
@@ -217,7 +236,7 @@ class Simulation:
         c.log(env.now, f"{office}교육지원청", "출석통지서 발송 (서식 11)", self.cite("office_probe"))
         if supported:
             c.coordination += 1
-            c.log(env.now, "상근 전담관", "피해교원 서면 의견서 작성 지원 (서식 11-1)", self.cite("office_probe"))
+            c.log(env.now, self.L["lead"], "피해교원 서면 의견서 작성 지원 (서식 11-1)", self.cite("office_probe"))
             yield env.timeout(r.uniform(1, 3))
         else:
             c.repeats += 1
@@ -225,7 +244,7 @@ class Simulation:
             yield env.timeout(r.uniform(4, 10))
         if "갈등조정" in c.needs and r.random() < MEDIATION_PROB:
             c.mediation = True
-            who = "상근 전담관" if supported else "피해 교원"
+            who = self.L["lead"] if supported else "피해 교원"
             c.log(env.now, who, "분쟁조정 신청서 제출 (서식 5)", self.cite("mediation"))
             if not supported:
                 c.contacts += 1
@@ -252,7 +271,8 @@ class Simulation:
             self.start(make(self.arr_rng, self.env.now, next(self._ids)))
 
     def start(self, case: Case):
-        if self.office_names and not case.office:
+        if self.office_names and case.office not in self.office_names:
+            # 관할이 없거나 다른 지역 관할(예: 경기 시나리오를 인천형에 넣을 때)이면 이 지역 비중대로 정한다
             case.office = self.geo_rng.choices(self.office_names, weights=self.office_w)[0]
         self.cases.append(case)
         proc = self.distributed if self.kind == "distributed" else self.integrated
@@ -337,20 +357,20 @@ class Simulation:
         c.contacts += 1
         c.repeats += 1
         yield env.timeout(self.rng.uniform(0.5, 2))
-        c.log(env.now, "교권보호 119 접수", "접수·분류")
+        c.log(env.now, self.L["intake"], "접수·분류")
         yield from self.separation(c, "학교")
         misroute = 0.05 if p["manual"] else 0.2
         if self.rng.random() < misroute:
             c.misroutes += 1
             c.repeats += 1
-            c.log(env.now, "교권보호 119 접수", "분류 착오로 재배정 (매뉴얼 부재)", self.cite("manual"))
+            c.log(env.now, self.L["intake"], "분류 착오로 재배정 (매뉴얼 부재)", self.cite("manual"))
             yield env.timeout(8)
         if not p["linkage_procedure"] and self.rng.random() < 0.5:
             # 연계절차가 없으면 센터도 따로 접수해 같은 내용을 다시 묻는다
             c.duplicates += 1
             c.contacts += 1
             c.repeats += 1
-            c.log(env.now, "지역교권보호지원센터", "별도 접수·상담 진행 (업무 중복)", self.cite("linkage"))
+            c.log(env.now, self.L["center"], "별도 접수·상담 진행 (업무 중복)", self.cite("linkage"))
             with self.center.request() as req:
                 yield req
                 yield env.timeout(2)
@@ -360,41 +380,41 @@ class Simulation:
         with self.leads.request(priority=priority) as lead:
             yield lead
             c.first_response = env.now
-            c.log(env.now, "상근 전담관", "주 담당 배정, 1:1 초기 상담·지원계획 수립", self.cite("assign"))
+            c.log(env.now, self.L["lead"], "주 담당 배정, 1:1 초기 상담·지원계획 수립", self.cite("assign"))
             c.coordination += 1
             yield env.timeout(2)
             if escalate:
-                c.log(env.now, "교육감(단장)", "중대 사안 지정, 필요 시 고발 결정", self.cite("escalation"))
+                c.log(env.now, self.L["head"], "중대 사안 지정, 필요 시 고발 결정", self.cite("escalation"))
                 c.coordination += 1
                 yield env.timeout(4)
             # 전담관은 침해 여부를 직접 판단하지 않는다 → 위원회로 넘긴다 (근거 조문)
             if self.needs_committee(c):
                 c.guard_blocks += 1
-                c.log(env.now, "상근 전담관", "침해 여부 판단은 권한 밖 → 위원회 심의 요청 서류 대리 준비", self.cite("guard"))
+                c.log(env.now, self.L["lead"], "침해 여부 판단은 권한 밖 → 위원회 심의 요청 서류 대리 준비", self.cite("guard"))
             # 필요한 전문가를 병렬로 연결 (행정은 교육전문직인 주 담당이 직접)
             jobs = [env.process(self.specialist(c, s)) for s in c.needs if s != "행정"]
             if "행정" in c.needs:
                 yield env.timeout(self.work("행정", case=c))
-                c.log(env.now, "상근 전담관", "[행정] 절차 직접 처리", self.cite("officer_duty"))
+                c.log(env.now, self.L["lead"], "[행정] 절차 직접 처리", self.cite("officer_duty"))
             if jobs:
                 yield simpy.AllOf(env, jobs)
             if not c.analyzable and len(c.needs) >= 2:
                 # 해결 절차가 불명확한 사안은 사례 회의에서 예외를 팀 안에서 흡수한다 (교사 재방문 없음)
                 c.reworks += 1
                 c.coordination += len(c.needs)
-                c.log(env.now, "상근 전담관", "해결 절차가 불명확해 사례 회의로 전문가 판단을 다시 맞춤", self.cite("team"))
+                c.log(env.now, self.L["lead"], "해결 절차가 불명확해 사례 회의로 전문가 판단을 다시 맞춤", self.cite("team"))
                 yield env.timeout(2)
             if c.interdependence == "교호적":
                 n = len(c.needs)
                 c.coordination += n * (n - 1) // 2
-                c.log(env.now, "상근 전담관", f"사안 회의로 전문가 {n}명 판단 조율 (교사 참여 불필요)", self.cite("team"))
+                c.log(env.now, self.L["lead"], f"사안 회의로 전문가 {n}명 판단 조율 (교사 참여 불필요)", self.cite("team"))
                 yield env.timeout(2)
             if self.needs_committee(c):
                 c.coordination += 1
-                c.log(env.now, "상근 전담관", "교육활동 침해 사안 신고서 작성 지원 (서식 1)", self.cite("committee"))
+                c.log(env.now, self.L["lead"], "교육활동 침해 사안 신고서 작성 지원 (서식 1)", self.cite("committee"))
                 yield from self.committee_procedure(c, supported=True)
             c.closed = env.now
-            c.log(env.now, "상근 전담관", "사안 종결 → 사후 관리로 전환", self.cite("officer_duty"))
+            c.log(env.now, self.L["lead"], "사안 종결 → 사후 관리로 전환", self.cite("officer_duty"))
 
     def specialist(self, c: Case, s: str):
         env, p = self.env, self.p
@@ -402,8 +422,19 @@ class Simulation:
             with self.center.request() as req:
                 yield req
                 c.coordination += 2
-                c.log(env.now, "지역교권보호지원센터", "[상담] 연계절차로 사안팀 합류 (재진술 없음)", self.cite("linkage"))
+                c.log(env.now, self.L["center"], "[상담] 연계절차로 사안팀 합류 (재진술 없음)", self.cite("linkage"))
                 yield env.timeout(self.work(s, case=c))
+            return
+        res = self.resident.get(s)
+        if res is not None and res.count < res.capacity:
+            with res.request() as req:
+                yield req
+                c.coordination += 2
+                c.log(env.now, self.L["resident"], f"[{s}] 상주 인력이 바로 합류 (일정 조율 없음)", self.cite("team"))
+                t = self.work(s, case=c)
+                if s == "수사연계":
+                    t += self.police()
+                yield env.timeout(t)
             return
         a = p["nonregular_availability"]
         with self.pools[s].request() as req:
@@ -412,14 +443,14 @@ class Simulation:
             wait = self.rng.expovariate(1 / (HOURS_PER_DAY * (1 - a) / a)) if a < 1 else 0
             yield env.timeout(wait)
             c.coordination += 2
-            c.log(env.now, "비상근 전담관", f"[{s}] 합류 (일정 조율 {wait / HOURS_PER_DAY:.1f}일)", self.cite("nonregular"))
+            c.log(env.now, self.L["nonregular"], f"[{s}] 합류 (일정 조율 {wait / HOURS_PER_DAY:.1f}일)", self.cite("nonregular"))
             t = self.work(s, case=c)
             if s == "수사연계":
                 t += self.police()
             if t > HOURS_PER_DAY and self.rng.random() < (1 - a) * 0.5:
                 c.handoffs += 1
                 c.coordination += 1
-                c.log(env.now, "비상근 전담관", f"[{s}] 담당자 일정 공백으로 인수인계")
+                c.log(env.now, self.L["nonregular"], f"[{s}] 담당자 일정 공백으로 인수인계")
                 t += 2 + self.rng.expovariate(1 / HOURS_PER_DAY)
             yield env.timeout(t)
 

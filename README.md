@@ -79,6 +79,10 @@ streamlit run app/Home.py
 `data/schools/gyeonggi_schools.csv`로 들어 있습니다. 새 CSV로 바꾸려면 같은 경로에 덮어쓰면 됩니다 (UTF-8, CP949 모두 읽음).
 없으면 25개 교육지원청만으로 동작하고, 사안은 교육지원청마다 같은 비중으로 생깁니다.
 
+인천형(C)은 인천 학교 550곳(초 274 · 중 147 · 고 129, 같은 표준데이터에서 인천만 고름)이 담긴
+`data/schools/incheon_schools.csv`와 인천 5개 교육지원청(남부·동부·북부·서부·강화)으로 돌립니다. 사안 유입량은
+화면의 '하루 평균 사안 수'(경기 기준)에 2024년 교보위 심의 건수 비율(인천 277 / 경기 1,054 ≈ 0.26)을 곱합니다.
+
 ## 구성
 
 ```
@@ -119,7 +123,7 @@ tests/
 | A 분산 구조 | 교사가 상담·법률·행정 창구를 직접 찾아다님, 조정자 없음 | 분화만 있고 통합 부족 (Lawrence & Lorsch), Gulick |
 | B0 출범 초기 | 교육감 직속 + 사안팀, 매뉴얼·연계절차 없음 (8.24~10.7) | 공식화 이전 |
 | B 교권보호단 | 상근 1 + 비상근 1~2 + 센터 담당이 사안 단위로 묶임, 조례 시행 후 | 위계 + 사안팀 조정 (Burns & Stalker, Thompson) |
-| C 인천형 | 상주 인력 중심 통합 | 안정적 전담 인력 조건 |
+| C 인천형 | 인천 교육활동보호담당관: 상주 20명(대응 장학사 4·센터 8·상주 변호사 2 등) + 교육지원청 담당 장학사 5 + 위촉 지원단 43, 인천 학교 550곳·교육지원청 5곳 | 안정적 전담 인력 조건 |
 
 결론의 실효성 조건 세 가지는 시뮬레이션 페이지에서 직접 켜고 끌 수 있습니다.
 ① 역할 구분(조례 제17조 연계절차) ② 안정적 전담 인력(상근 수, 비상근 응답 비율) ③ 제도화(조례 제25조 매뉴얼)
@@ -176,6 +180,9 @@ tests/
 | 제공기관 | 데이터 | 기준일 | 형식 | 키 | 쓰이는 곳 |
 |---|---|---|---|---|---|
 | 한국교육시설안전원 | [전국초중등학교위치표준데이터 (경기 2,576곳)](https://www.data.go.kr/tcs/dss/selectDataSetList.do?keyword=전국초중등학교위치표준데이터) | 2026-10-01 | CSV → data/schools/gyeonggi_schools.csv | - | 시뮬레이션 지도, 학교 → 관할 교육지원청 (교원 수 표가 없을 때 사안 비중) |
+| 한국교육시설안전원 | [전국초중등학교위치표준데이터 (인천 550곳)](https://www.data.go.kr/data/15021148/standard.do) | 2026-10-01 | CSV → data/schools/incheon_schools.csv (학교ID·학교명·학교급·교육지원청·위경도만) | - | 인천형(C) 지도, 인천 5개 교육지원청별 사안 비중(학교 수 비례) |
+| 인천광역시교육청 | [교육활동보호담당관 구성현황](https://hbm.ice.go.kr/ice/cm/cntnts/cntntsView.do?mi=11821&cntntsId=857) | 2026-06-30 | 누리집 표 → sim/structures/C_incheon.yaml, geo/incheon.py | - | 인천형(C) 상주 인원 (대응 장학사·센터·상주 변호사·교육지원청 담당) |
+| 내외일보 (인천광역시교육청 보도) | [교육활동보호 지원단 2기 위촉 (법률 33·의료 5·교육전문가 5)](https://www.naewoeilbo.com/news/articleView.html?idxno=2259385) | 2025-12-04 | 기사 본문 → sim/structures/C_incheon.yaml | - | 인천형(C) 비상근 인력 풀 |
 | 교육부 (NEIS) | [학교기본정보](https://open.neis.go.kr) | 수시 | Open API | `NEIS_KEY` | 근거 자료 화면 학교 정보 대조 (선택) |
 | 경기도 (경기데이터드림) | [경기도 지구대(파출소) 현황](https://data.gg.go.kr/portal/data/service/selectServicePage.do?infId=DQ2I0RA86JC3Z2M9Q8RZ17985111&infSeq=3) | 수시 (2025-12-31 기준 자료) | Open API (Ptrldvsnsubpolcstus) | `GG_DATA_KEY` | 교육지원청별 경찰 관서 수 (python -m collector.gg_data, 참고) |
 | 경기도 (경기데이터드림) | [경기도 초중고등학교 현황](https://data.gg.go.kr/portal/data/service/selectServicePage.do?infId=1CO945ICIYJN0ZYSPR0F21083003&infSeq=3) | 수시 | Open API (GgSchoolM) | `GG_DATA_KEY` | python -m collector.gg_data 로 저장, 학교 위치 대조용 |

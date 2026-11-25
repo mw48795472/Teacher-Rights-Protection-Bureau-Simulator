@@ -43,6 +43,7 @@ OFFICES = [Office(*o) for o in [
     ("포천", 37.895, 127.200),
 ]]
 OFFICE_BY_KEY = {o.key: o for o in OFFICES}
+MAP_VIEW = {"zoom": 7.9, "center": {"lat": 37.55, "lon": 127.1}}
 
 LEVELS = ("초등학교", "중학교", "고등학교")
 

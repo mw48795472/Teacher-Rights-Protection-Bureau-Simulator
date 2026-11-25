@@ -1,21 +1,47 @@
 name: C. 인천형 상주 통합
 short: C 인천형
 kind: integrated
+region: 인천   # 인천 학교 550곳·5개 교육지원청, 인천 사안 규모로 돌린다 (geo/incheon.py)
 tagline: 상주 인력 중심의 통합 모델 (비교군)
 points:
-  - 인천 교육활동보호담당관 (2024)
-  - 장학관·변호사·상담사 20여 명 상주
-  - 비상근 의존이 낮아 공백이 적음
-definition: 인천광역시교육청이 2024년 1월 교육감 직속으로 설치한 교육활동보호담당관 모델. 교원치유지원센터·교육활동보호대응팀·법률지원팀을 한 조직으로 합쳤고, 장학관·변호사·상담사 등 20여 명이 상주한다. 경기와 같은 통합 구조이지만 비상근보다 상주 인력에 기대는 점이 다르다. 비교 대상으로 쓴다.
-description: 2024년 교육감 직속 교육활동보호담당관. 장학관·변호사·상담사 등 20여 명 상주, 위촉 변호사 33명.
-theory: 안정적 전담 인력(상근) 조건 비교 [경인일보, 다음뉴스]
+  - 인천 교육활동보호담당관 (2024.1., 교육감 직속)
+  - 상주 20명 + 위촉 지원단 43명
+  - 인천 학교 550곳·교육지원청 5곳
+definition: 인천광역시교육청이 2024년 1월 교육감 직속으로 설치한 교육활동보호담당관 모델. 교원치유지원센터·교육활동보호대응팀·법률지원팀을 한 조직으로 합쳤다. 담당관실에 20명(대응팀 6, 교육활동보호센터 8, 법률지원팀 5, 담당관 1)이 상주하고, 교육지원청 5곳에 담당 장학사가 1명씩 있으며, 위촉 지원단(법률 33·의료 5·교육전문가 5)이 비상근으로 붙는다. 경기와 같은 통합 구조이지만 사안 규모가 경기의 약 4분의 1이고 상주 변호사가 있다는 점이 다르다.
+description: 2024년 교육감 직속 교육활동보호담당관. 상주 20명(장학사 8·전문상담사 4·변호사 2 등), 교육지원청 담당 장학사 5명, 위촉 지원단 43명. 인천 학교 550곳·교육지원청 5곳.
+theory: 안정적 전담 인력(상근) 조건 비교 [인천광역시교육청 구성현황, 연합뉴스 2026-07-09, 내외일보 2025-12-04]
+labels:
+  intake: 교육활동보호담당관 접수 (1395)
+  lead: 대응 장학사
+  nonregular: 위촉 지원단
+  resident: 법률지원팀 상주 변호사
+  center: 교육활동보호센터
+  head: 교육감
 params:
-  regular_officers: 20
-  caseload_per_regular: 6
-  nonregular_officers: 40
-  nonregular_availability: 0.6   # 상주 인력 비중이 커서 응답성이 높다고 가정
-  center_staff: 6
-  linkage_procedure: true
-  manual: true
-  escalation: true
-  committee_interval_days: 30
+  regular_officers: 9            # 실측 인원: 대응팀 장학사 4 + 교육지원청 담당 장학사 5 (주 담당 역할로 본 것은 가정)
+  caseload_per_regular: 6        # 가정 (경기와 같음)
+  center_staff: 8                # 실측: 교육활동보호센터 장학사 4 + 전문상담사 4
+  resident_specialists:          # 실측: 법률지원팀 변호사 2 (상주, 일정 조율 없이 바로 합류)
+    법률: 2
+    수사연계: 법률               # 아동학대 고소·고발 대응도 변호사가 맡는다
+  nonregular_officers: 43        # 실측: 교육활동보호 지원단 2기 (2025.12.)
+  nonregular_pool:               # 실측: 법률지원단 33, 의료지원단 5, 교육전문가 5
+    법률: 33
+    상담: 5
+    갈등조정: 5
+    수사연계: 법률
+  nonregular_availability: 0.25  # 가정 (경기와 같음: 위촉 인력은 본업이 있어 일정 조율이 필요)
+  linkage_procedure: true        # 세 조직을 한 담당관실로 통합 (연계가 조직 안에서 이뤄짐)
+  manual: true                   # 교육활동보호 매뉴얼 (인천교육-2026-0093)
+  escalation: true               # 교육감 직속, 교육감 형사 고발 제도
+  committee_interval_days: 30    # 가정 (경기와 같음)
+measured:   # 화면의 실측/가정 표에 쓰는 근거
+  staff:
+    title: 인천광역시교육청 교육활동보호담당관 구성현황 (2026.6.30. 갱신)
+    url: https://hbm.ice.go.kr/ice/cm/cntnts/cntntsView.do?mi=11821&cntntsId=857
+  corps:
+    title: 교육활동보호 지원단 2기 위촉 (내외일보 2025-12-04)
+    url: https://www.naewoeilbo.com/news/articleView.html?idxno=2259385
+  schools:
+    title: 전국초중등학교위치표준데이터 인천 550곳 (한국교육시설안전원, 2026.10.1.)
+    url: https://www.data.go.kr/data/15021148/standard.do

@@ -174,6 +174,15 @@ def assumption_table() -> pd.DataFrame:
         ("전담관 인원·가용률", "상근 20, 비상근 280, 가용률 25%", "공개 자료 없음", "",
          "가정 유지 (정보공개청구 필요)"),
         ("위원회 개최 간격", "30일", "공개 자료 없음 (지원청별 개최 일자)", "", "가정 유지 (정보공개청구 필요)"),
+        ("인천형 학교·교육지원청", "경기 학교 2,576곳·25개 교육지원청을 그대로 씀",
+         "인천 학교 550곳 (초 274·중 147·고 129), 교육지원청 5곳 (남부·동부·북부·서부·강화), 학교 수 비례",
+         "incheon_schools", "반영"),
+        ("인천형 사안 규모", "경기와 같은 유입량",
+         f"2024 교보위 심의 인천 277건 / 경기 1,054건 = {region_case_scale('인천'):.2f}배", "kbw_sido_2024", "반영"),
+        ("인천형 인원", "상근 20, 비상근 40, 가용률 60%",
+         "대응팀 장학사 4 + 교육지원청 담당 장학사 5 (주 담당), 교육활동보호센터 8 (장학사 4·전문상담사 4), "
+         "상주 변호사 2, 위촉 지원단 43 (법률 33·의료 5·교육전문가 5)", "incheon_staff, incheon_corps",
+         "반영 (주 담당 역할 배정과 비상근 가용률 25%는 가정)"),
     ]
     out = pd.DataFrame(rows, columns=["항목", "팀 가정값", "실측값", "출처", "시뮬레이터"])
     out["출처"] = out["출처"].map(lambda s: ", ".join(source(k).get("title", k) for k in s.split(", ") if k) if s else "")
@@ -206,3 +215,17 @@ def gyeonggi_committee_per_day() -> float | None:
     """경기 교보위 심의 건수의 하루 평균 (2024년 전체 기준). 시뮬레이터 유입량(하루 약 3건)과 비교용."""
     y = ((load().get("committee_by_sido") or {}).get("y2024") or {}).get("counts") or {}
     return y["경기"] / 365 if "경기" in y else None
+
+
+def region_case_scale(region: str) -> float:
+    """경기 기준 사안 유입량을 다른 지역 규모로 바꾸는 배수.
+
+    2024년 교보위 심의 건수 비율(인천 277 / 경기 1,054 = 0.26) [kbw_sido_2024]. 시뮬레이터의 '하루 평균 사안 수'는
+    경기 교권보호단 기준이라, 인천형은 이 배수를 곱한 유입량으로 돌린다. 자료가 없으면 1.
+    """
+    if region == "경기":
+        return 1.0
+    y = ((load().get("committee_by_sido") or {}).get("y2024") or {}).get("counts") or {}
+    if region in y and y.get("경기"):
+        return y[region] / y["경기"]
+    return 1.0
